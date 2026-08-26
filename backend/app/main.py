@@ -34,7 +34,7 @@ demo_state = {
 
 def load_initial_data():
     try:
-        with open("../data/payments.json", "r") as f:
+        with open("../../data/payments.json", "r") as f:
             payments_data = json.load(f)
             demo_state["payments"] = []
             for p_data in payments_data:
@@ -94,7 +94,7 @@ async def screen_batch():
 
             # Execute Real RocketRide Pipeline
             try:
-                result = await run_pipeline("../rocketride/ap_sentinel.pipe", {"payment": req.model_dump()})
+                result = await run_pipeline("../../rocketride/ap_sentinel.pipe", {"payment": req.model_dump()})
                 
                 demo_state["stats"]["screened"] += 1
                 

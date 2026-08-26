@@ -28,7 +28,7 @@ The app screens a batch of ~20 synthetic payment requests synchronously through 
 
 ### Environment
 1. Clone the repository.
-2. The project contains a `server` and a `client` directory.
+2. The project contains a `backend` and a `frontend` directory.
 
 ### RocketRide Local
 1. Ensure RocketRide local extension is installed and running.
@@ -37,17 +37,16 @@ The app screens a batch of ~20 synthetic payment requests synchronously through 
 
 ### Backend
 ```bash
-cd server
+cd backend
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-cd app
-uvicorn main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 ### Frontend
 ```bash
-cd client
+cd frontend
 npm install
 npm run dev
 ```

@@ -50,7 +50,7 @@ RocketRide is a real runtime dependency and is NOT mocked. The pipeline definiti
 The backend manages the AP Sentinel API and interacts with the RocketRide pipeline.
 
 ```bash
-cd server
+cd backend
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -62,7 +62,7 @@ Backend API will be available at `http://localhost:8000`.
 The frontend provides the AP Sentinel UI.
 
 ```bash
-cd client
+cd frontend
 npm install
 npm run dev
 ```
@@ -70,13 +70,13 @@ Frontend UI will be available at `http://localhost:5173`.
 
 ## 6. Environment Variables
 The project uses environment variables to connect to RocketRide. 
-A real `.env` contains local secrets and must **NOT** be committed. API keys must never be pasted into chat or GitHub.
+A real `.env` at the project root contains local secrets and must **NOT** be committed. API keys must never be pasted into chat or GitHub.
 
 Required variables:
 - `ROCKETRIDE_URI`
 - `ROCKETRIDE_APIKEY`
 
-*(If a `.env.example` does not exist, a safe example file should be created later. Do not hardcode real values into example files.)*
+*(See `.env.example` at the project root for a safe placeholder template.)*
 
 ## 7. Demo Flow
 1. Click **SCREEN BATCH** on the Overview page.
@@ -93,4 +93,4 @@ Required variables:
 ## 9. Quick Troubleshooting
 - **Ollama model missing:** Run `ollama pull llama3.2`
 - **RocketRide not connected:** Go to RocketRide Settings → Local → Reconnect.
-- **Frontend build/import errors:** Run `npm run build` from the `client` directory.
+- **Frontend build/import errors:** Run `npm run build` from the `frontend` directory.
