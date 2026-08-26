@@ -93,15 +93,15 @@ def get_stats(current_user=Depends(get_current_user)):
 def get_payments(current_user=Depends(get_current_user)):
     return [p.model_dump() for p in demo_state["payments"]]
 
-is_batch_running = False
+import asyncio
+batch_lock = asyncio.Lock()
 
 @app.post("/api/screen-batch")
 async def screen_batch(current_user=Depends(get_current_user)):
-    global is_batch_running
-    if is_batch_running:
+    if batch_lock.locked():
         raise HTTPException(status_code=409, detail="Batch is already running.")
     
-    is_batch_running = True
+    async with batch_lock:
     try:
         for payment_res in demo_state["payments"]:
             if payment_res.status != PaymentStatus.PENDING:
@@ -124,7 +124,14 @@ async def screen_batch(current_user=Depends(get_current_user)):
 
             # Execute Real RocketRide Pipeline
             try:
-                result = await run_pipeline("../../rocketride/ap_sentinel.pipe", {"payment": req.model_dump()})
+                import os
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                pipe_path = os.path.join(project_root, "rocketride", "ap_sentinel.pipe")
+                
+                print(f"PIPELINE_PATH={pipe_path}")
+                print(f"PIPELINE_EXISTS={'YES' if os.path.exists(pipe_path) else 'NO'}")
+
+                result = await run_pipeline(pipe_path, {"payment": req.model_dump()})
                 
                 demo_state["stats"]["screened"] += 1
                 

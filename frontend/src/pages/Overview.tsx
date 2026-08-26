@@ -8,6 +8,10 @@ import type { PaymentResult, Stats } from '../lib/api';
 // Helpers
 // ──────────────────────────────────────────────
 
+function normalizeRisk(score: number): number {
+  return (score <= 1 && score > 0) ? Math.round(score * 100) : Math.round(score);
+}
+
 function fmtAmount(amount: number, currency: string = 'INR'): string {
   if (currency === 'INR') {
     return `₹${amount.toLocaleString('en-IN')}`;
@@ -15,22 +19,23 @@ function fmtAmount(amount: number, currency: string = 'INR'): string {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-function fmtRisk(score: number): { label: string; color: string } {
+function fmtRisk(rawScore: number): { label: string; color: string } {
+  const score = normalizeRisk(rawScore);
   if (score >= 80) return { label: 'Critical', color: '#F04B4B' };
-  if (score >= 60) return { label: 'High',     color: '#F28A45' };
-  if (score >= 40) return { label: 'Medium',   color: '#E9C84A' };
-  if (score > 0)   return { label: 'Low',      color: '#7DBF9A' };
-  return              { label: 'Pending',   color: '#92999F' };
+  if (score >= 60) return { label: 'High', color: '#F28A45' };
+  if (score >= 40) return { label: 'Medium', color: '#E9C84A' };
+  if (score > 0) return { label: 'Low', color: '#7DBF9A' };
+  return { label: 'Pending', color: '#92999F' };
 }
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'CLEAR':         return '#7DBF9A';
-    case 'HELD':          return '#F04B4B';
-    case 'APPROVED':      return '#7DBF9A';
-    case 'REJECTED':      return '#F04B4B';
+    case 'CLEAR': return '#7DBF9A';
+    case 'HELD': return '#F04B4B';
+    case 'APPROVED': return '#7DBF9A';
+    case 'REJECTED': return '#F04B4B';
     case 'UNPROCESSABLE': return '#E9C84A';
-    default:              return '#92999F';
+    default: return '#92999F';
   }
 }
 
@@ -113,10 +118,10 @@ interface PipelineHealthProps {
 
 function PipelineHealth({ screened }: PipelineHealthProps) {
   const stages = [
-    { name: 'Ingestion',  key: 'ingestion' },
-    { name: 'Screening',  key: 'screening' },
-    { name: 'Detection',  key: 'detection' },
-    { name: 'Alerting',   key: 'alerting'  },
+    { name: 'Ingestion', key: 'ingestion' },
+    { name: 'Screening', key: 'screening' },
+    { name: 'Detection', key: 'detection' },
+    { name: 'Alerting', key: 'alerting' },
   ];
 
   const isActive = screened > 0;
@@ -257,7 +262,7 @@ function AttentionCard({ payment, onReview }: AttentionCardProps) {
               display: 'inline-block',
             }}
           />
-          {riskLabel} · {payment.risk_score}/100
+          {riskLabel} · {normalizeRisk(payment.risk_score)}/100
         </span>
         <span
           style={{
@@ -383,30 +388,30 @@ export default function Overview() {
   // KPI data — only from real backend stats
   const kpis = stats
     ? [
-        {
-          label: 'Screened',
-          value: stats.screened,
-          sub: `${stats.clear} cleared`,
-        },
-        {
-          label: 'Held for Review',
-          value: stats.held + stats.unprocessable,
-          sub: `${stats.approved + stats.rejected} resolved`,
-          accent: stats.held + stats.unprocessable > 0 ? '#F04B4B' : undefined,
-        },
-        {
-          label: 'Approved',
-          value: stats.approved,
-          sub: stats.screened > 0 ? `${Math.round((stats.approved / Math.max(stats.screened, 1)) * 100)}% of screened` : '—',
-          accent: stats.approved > 0 ? '#7DBF9A' : undefined,
-        },
-        {
-          label: 'Rejected',
-          value: stats.rejected,
-          sub: 'Fraud prevented',
-          accent: stats.rejected > 0 ? '#F28A45' : undefined,
-        },
-      ]
+      {
+        label: 'Screened',
+        value: stats.screened,
+        sub: `${stats.clear} cleared`,
+      },
+      {
+        label: 'Held for Review',
+        value: stats.held + stats.unprocessable,
+        sub: `${stats.approved + stats.rejected} resolved`,
+        accent: stats.held + stats.unprocessable > 0 ? '#F04B4B' : undefined,
+      },
+      {
+        label: 'Approved',
+        value: stats.approved,
+        sub: stats.screened > 0 ? `${Math.round((stats.approved / Math.max(stats.screened, 1)) * 100)}% of screened` : '—',
+        accent: stats.approved > 0 ? '#7DBF9A' : undefined,
+      },
+      {
+        label: 'Rejected',
+        value: stats.rejected,
+        sub: 'Fraud prevented',
+        accent: stats.rejected > 0 ? '#F28A45' : undefined,
+      },
+    ]
     : [];
 
   return (
@@ -505,8 +510,8 @@ export default function Overview() {
         {loading
           ? Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)
           : kpis.map(k => (
-              <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} accent={k.accent} />
-            ))}
+            <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} accent={k.accent} />
+          ))}
       </div>
 
       {/* ── Analytics row ───────────────────────── */}
@@ -525,10 +530,10 @@ export default function Overview() {
           {stats && stats.screened > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {[
-                { label: 'Clear',         value: stats.clear,         color: '#7DBF9A' },
-                { label: 'Held',          value: stats.held,          color: '#F04B4B' },
-                { label: 'Approved',      value: stats.approved,      color: '#7DBF9A' },
-                { label: 'Rejected',      value: stats.rejected,      color: '#F28A45' },
+                { label: 'Clear', value: stats.clear, color: '#7DBF9A' },
+                { label: 'Held', value: stats.held, color: '#F04B4B' },
+                { label: 'Approved', value: stats.approved, color: '#7DBF9A' },
+                { label: 'Rejected', value: stats.rejected, color: '#F28A45' },
                 { label: 'Unprocessable', value: stats.unprocessable, color: '#E9C84A' },
               ].map(item => {
                 const pct = stats.screened > 0 ? Math.round((item.value / stats.screened) * 100) : 0;
@@ -637,7 +642,7 @@ export default function Overview() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                           <span style={{ fontSize: '11px', color: sc, fontWeight: 500 }}>{p.status}</span>
                           {isHeld && p.risk_score > 0 && (
-                            <span style={{ fontSize: '11px', color: '#9DB1BF' }}>{p.risk_score}/100</span>
+                            <span style={{ fontSize: '11px', color: '#9DB1BF' }}>{normalizeRisk(p.risk_score)}/100</span>
                           )}
                         </div>
                       </div>

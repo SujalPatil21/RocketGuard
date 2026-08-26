@@ -8,12 +8,17 @@ import type { PaymentResult } from '../lib/api';
 // Helpers
 // ──────────────────────────────────────────────
 
+function normalizeRisk(score: number): number {
+  return (score <= 1 && score > 0) ? Math.round(score * 100) : Math.round(score);
+}
+
 function fmtAmount(amount: number, currency: string = 'INR'): string {
   if (currency === 'INR') return `₹${amount.toLocaleString('en-IN')}`;
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-function riskColor(score: number): string {
+function riskColor(rawScore: number): string {
+  const score = normalizeRisk(rawScore);
   if (score >= 80) return '#F04B4B';
   if (score >= 60) return '#F28A45';
   if (score >= 40) return '#E9C84A';
@@ -38,8 +43,9 @@ type FilterType = 'All' | 'HELD' | 'CLEAR' | 'APPROVED' | 'REJECTED' | 'UNPROCES
 // Risk bar
 // ──────────────────────────────────────────────
 
-function RiskBar({ score }: { score: number }) {
-  const color = riskColor(score);
+function RiskBar({ score: rawScore }: { score: number }) {
+  const score = normalizeRisk(rawScore);
+  const color = riskColor(rawScore);
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
@@ -119,7 +125,7 @@ function TxnRow({ payment, isSelected, onClick }: TxnRowProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
             <span style={{ fontSize: '10px', fontWeight: 500, color: sc }}>{payment.status}</span>
             {payment.risk_score > 0 && (
-              <span style={{ fontSize: '10px', color: rc, fontWeight: 600 }}>{payment.risk_score}</span>
+              <span style={{ fontSize: '10px', color: rc, fontWeight: 600 }}>{normalizeRisk(payment.risk_score)}</span>
             )}
           </div>
         </div>

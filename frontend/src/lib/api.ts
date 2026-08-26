@@ -70,48 +70,117 @@ export interface Stats {
 }
 
 const API_BASE = 'http://localhost:8000/api';
+const AUTH_BASE = 'http://localhost:8000/auth';
+
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('rg_token');
+  if (token) {
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error((errorData as { detail?: string }).detail || `HTTP ${res.status}`);
+    throw new Error(errorData.message || (errorData as { detail?: string }).detail || `HTTP ${res.status}`);
   }
   return res.json();
 }
 
 export const api = {
+  // Auth
+  getMe: async (): Promise<any> => {
+    const res = await fetch(`${AUTH_BASE}/me`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  login: async (email: string, password: string): Promise<any> => {
+    const res = await fetch(`${AUTH_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    return handleResponse(res);
+  },
+
+  register: async (email: string, password: string, full_name: string): Promise<any> => {
+    const res = await fetch(`${AUTH_BASE}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, full_name })
+    });
+    return handleResponse(res);
+  },
+
+  verifyOtp: async (email: string, purpose: string, otp: string): Promise<any> => {
+    const res = await fetch(`${AUTH_BASE}/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, purpose, otp })
+    });
+    return handleResponse(res);
+  },
+
+  setToken: (token: string) => {
+    localStorage.setItem('rg_token', token);
+  },
+
+  clearToken: () => {
+    localStorage.removeItem('rg_token');
+  },
+
+  // API
   getHealth: async (): Promise<{ status: string }> => {
-    const res = await fetch(`${API_BASE}/health`);
+    const res = await fetch(`${API_BASE}/health`, { headers: getAuthHeaders() });
     return handleResponse(res);
   },
 
   getStats: async (): Promise<Stats> => {
-    const res = await fetch(`${API_BASE}/stats`);
+    const res = await fetch(`${API_BASE}/stats`, { headers: getAuthHeaders() });
     return handleResponse(res);
   },
 
   getPayments: async (): Promise<PaymentResult[]> => {
-    const res = await fetch(`${API_BASE}/payments`);
+    const res = await fetch(`${API_BASE}/payments`, { headers: getAuthHeaders() });
     return handleResponse(res);
   },
 
   screenBatch: async (): Promise<{ status: string; stats: Stats }> => {
-    const res = await fetch(`${API_BASE}/screen-batch`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/screen-batch`, { 
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
     return handleResponse(res);
   },
 
   approvePayment: async (id: string): Promise<PaymentResult> => {
-    const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/approve`, { 
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
     return handleResponse(res);
   },
 
   rejectPayment: async (id: string): Promise<PaymentResult> => {
-    const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/reject`, { 
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
     return handleResponse(res);
   },
 
   resetDemo: async (): Promise<{ status: string }> => {
-    const res = await fetch(`${API_BASE}/reset-demo`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/reset-demo`, { 
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
     return handleResponse(res);
   },
 };

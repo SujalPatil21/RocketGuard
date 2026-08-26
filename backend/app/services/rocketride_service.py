@@ -7,7 +7,11 @@ from rocketride import RocketRideClient
 from rocketride.schema import Question
 from typing import Dict, Any
 
-load_dotenv('../../../.env')
+_env_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    ".env"
+)
+load_dotenv(_env_path, override=True)
 
 async def run_pipeline(pipe_path: str, payment_data: Dict[str, Any]) -> Dict[str, Any]:
     uri = os.environ.get("ROCKETRIDE_URI")
