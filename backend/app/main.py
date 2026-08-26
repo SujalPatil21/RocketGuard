@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from typing import List
 import json
 from datetime import datetime
@@ -7,6 +8,12 @@ from datetime import datetime
 from .models.payment import PaymentRequest, PaymentResult, PaymentStatus
 from .models.audit import AuditEvent
 from .services.rocketride_service import run_pipeline
+
+# ── Auth imports ──────────────────────────────────────────────────────────────
+from .auth.controllers.router import router as auth_router
+from .auth.exceptions.exceptions import AuthException
+from .auth.security.dependencies import get_current_user
+from .db.database import create_tables
 
 app = FastAPI(title="AP Sentinel API")
 
@@ -18,6 +25,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Auth exception handler ────────────────────────────────────────────────────
+@app.exception_handler(AuthException)
+async def auth_exception_handler(request, exc: AuthException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "message": exc.message,
+            "errorCode": exc.error_code,
+        }
+    )
+
+# ── Mount auth router ─────────────────────────────────────────────────────────
+app.include_router(auth_router)
+
+# ── Create DB tables on startup ───────────────────────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    create_tables()
+
+# ── In-memory AP Sentinel state (unchanged) ───────────────────────────────────
 demo_state = {
     "payments": [],
     "stats": {
@@ -34,7 +62,7 @@ demo_state = {
 
 def load_initial_data():
     try:
-        with open("../../data/payments.json", "r") as f:
+        with open("../data/payments.json", "r") as f:
             payments_data = json.load(f)
             demo_state["payments"] = []
             for p_data in payments_data:
@@ -51,22 +79,24 @@ def load_initial_data():
 
 load_initial_data()
 
+# ── Public routes ─────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
 
+# ── Protected routes (require valid JWT) ──────────────────────────────────────
 @app.get("/api/stats")
-def get_stats():
+def get_stats(current_user=Depends(get_current_user)):
     return demo_state["stats"]
 
 @app.get("/api/payments")
-def get_payments():
+def get_payments(current_user=Depends(get_current_user)):
     return [p.model_dump() for p in demo_state["payments"]]
 
 is_batch_running = False
 
 @app.post("/api/screen-batch")
-async def screen_batch():
+async def screen_batch(current_user=Depends(get_current_user)):
     global is_batch_running
     if is_batch_running:
         raise HTTPException(status_code=409, detail="Batch is already running.")
@@ -137,7 +167,7 @@ async def screen_batch():
         is_batch_running = False
 
 @app.post("/api/payments/{payment_id}/approve")
-def approve_payment(payment_id: str):
+def approve_payment(payment_id: str, current_user=Depends(get_current_user)):
     for p in demo_state["payments"]:
         if p.payment.invoice_id == payment_id:
             if p.status == PaymentStatus.HELD or p.status == PaymentStatus.UNPROCESSABLE:
@@ -154,7 +184,7 @@ def approve_payment(payment_id: str):
     raise HTTPException(status_code=404, detail="Payment not found")
 
 @app.post("/api/payments/{payment_id}/reject")
-def reject_payment(payment_id: str):
+def reject_payment(payment_id: str, current_user=Depends(get_current_user)):
     for p in demo_state["payments"]:
         if p.payment.invoice_id == payment_id:
             if p.status == PaymentStatus.HELD or p.status == PaymentStatus.UNPROCESSABLE:
@@ -171,7 +201,7 @@ def reject_payment(payment_id: str):
     raise HTTPException(status_code=404, detail="Payment not found")
 
 @app.post("/api/reset-demo")
-def reset_demo():
+def reset_demo(current_user=Depends(get_current_user)):
     demo_state["stats"] = {
         "screened": 0, "clear": 0, "held": 0, "approved": 0, "rejected": 0, "unprocessable": 0,
         "runtime_ms": 0, "tokens": 0
