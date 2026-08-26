@@ -527,18 +527,20 @@ export default function Overview() {
             )}
           </div>
 
-          {stats && stats.screened > 0 ? (
+          {stats && (stats.clear + stats.held + stats.approved + stats.rejected + stats.unprocessable) > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {[
-                { label: 'Clear', value: stats.clear, color: '#7DBF9A' },
-                { label: 'Held', value: stats.held, color: '#F04B4B' },
-                { label: 'Approved', value: stats.approved, color: '#7DBF9A' },
-                { label: 'Rejected', value: stats.rejected, color: '#F28A45' },
-                { label: 'Unprocessable', value: stats.unprocessable, color: '#E9C84A' },
-              ].map(item => {
-                const pct = stats.screened > 0 ? Math.round((item.value / stats.screened) * 100) : 0;
-                return (
-                  <div key={item.label}>
+              {(() => {
+                const totalScreened = stats.clear + stats.held + stats.approved + stats.rejected + stats.unprocessable;
+                return [
+                  { label: 'Clear', value: stats.clear, color: '#7DBF9A' },
+                  { label: 'Held', value: stats.held, color: '#F04B4B' },
+                  { label: 'Approved', value: stats.approved, color: '#7DBF9A' },
+                  { label: 'Rejected', value: stats.rejected, color: '#F28A45' },
+                  { label: 'Unprocessable', value: stats.unprocessable, color: '#E9C84A' },
+                ].map(item => {
+                  const pct = totalScreened > 0 ? Math.round((item.value / totalScreened) * 100) : 0;
+                  return (
+                    <div key={item.label}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                       <span style={{ fontSize: '12px', color: '#596168' }}>{item.label}</span>
                       <span style={{ fontSize: '12px', fontWeight: 500, color: '#17191B' }}>{item.value} · {pct}%</span>
@@ -551,7 +553,7 @@ export default function Overview() {
                     </div>
                   </div>
                 );
-              })}
+              })})()}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '32px 0', color: '#9DB1BF', fontSize: '13px' }}>

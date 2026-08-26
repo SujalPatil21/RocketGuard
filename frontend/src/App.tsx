@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { Bell, Settings, User } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { api } from './lib/api';
 import Overview from './pages/Overview';
@@ -84,6 +84,24 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#E4EBF5' }}>
+        <div style={{ color: '#596168', fontFamily: "'Inter', sans-serif" }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/app" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 // ─────────────────────────────────────────────────────────────────
 // Components
 // ─────────────────────────────────────────────────────────────────
@@ -137,64 +155,37 @@ const UtilityControls = () => {
   return (
     <div className="flex items-center gap-2">
       <button
-        id="nav-notifications"
-        aria-label="Notifications"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          background: '#F9FBFD',
-          border: '1px solid rgba(35,50,65,0.10)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          transition: 'background 180ms ease',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.background = '#EEF3FA')}
-        onMouseLeave={e => (e.currentTarget.style.background = '#F9FBFD')}
-      >
-        <Bell size={15} color="#596168" />
-      </button>
-      <button
-        id="nav-settings"
-        aria-label="Settings"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          background: '#F9FBFD',
-          border: '1px solid rgba(35,50,65,0.10)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          transition: 'background 180ms ease',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.background = '#EEF3FA')}
-        onMouseLeave={e => (e.currentTarget.style.background = '#F9FBFD')}
-      >
-        <Settings size={15} color="#596168" />
-      </button>
-      <button
-        id="nav-profile"
-        aria-label="Profile"
+        id="nav-logout"
+        aria-label="Logout"
         onClick={handleLogout}
         title="Logout"
         style={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          background: '#323232',
-          border: 'none',
+          padding: '8px 16px',
+          borderRadius: '9999px',
+          background: 'transparent',
+          border: '1px solid rgba(35,50,65,0.15)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: 8,
           cursor: 'pointer',
-          transition: 'background 180ms ease',
+          transition: 'background 180ms ease, border-color 180ms ease',
+          fontSize: 13,
+          fontWeight: 600,
+          color: '#596168'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = '#FFF5F5';
+          e.currentTarget.style.borderColor = 'rgba(240,75,75,0.3)';
+          e.currentTarget.style.color = '#F04B4B';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.borderColor = 'rgba(35,50,65,0.15)';
+          e.currentTarget.style.color = '#596168';
         }}
       >
-        <User size={15} color="#C9CED3" />
+        <LogOut size={15} />
+        Logout
       </button>
     </div>
   );
@@ -240,8 +231,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/sign-up" element={<SignUp />} />
+          <Route path="/sign-in" element={<PublicRoute><SignIn /></PublicRoute>} />
+          <Route path="/sign-up" element={<PublicRoute><SignUp /></PublicRoute>} />
           <Route element={
             <ProtectedRoute>
               <DashboardLayout />
