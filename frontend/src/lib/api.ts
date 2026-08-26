@@ -1,3 +1,6 @@
+// RocketGuard API Layer
+// Maps to actual backend endpoints — no mocks, no fakes.
+
 export interface Payment {
   invoice_id: string;
   vendor_id: string;
@@ -19,10 +22,40 @@ export interface PaymentResult {
   risk_score: number;
   signals: string[];
   requires_human_review: boolean;
-  history_checker_result?: any;
-  pattern_matcher_result?: any;
-  verifier_result?: any;
-  audit_events: any[];
+  history_checker_result?: {
+    agent?: string;
+    status?: string;
+    riskScore?: number;
+    signals?: string[];
+    summary?: string;
+    reasoning?: string;
+    agreesWithHistoryChecker?: boolean;
+    disagreementReason?: string;
+  } | null;
+  pattern_matcher_result?: {
+    agent?: string;
+    status?: string;
+    riskScore?: number;
+    signals?: string[];
+    summary?: string;
+    reasoning?: string;
+    agreesWithHistoryChecker?: boolean;
+    disagreementReason?: string;
+  } | null;
+  verifier_result?: {
+    agent?: string;
+    verificationRequired?: boolean;
+    method?: string;
+    trustedSource?: string;
+    instruction?: string;
+    warning?: string;
+  } | null;
+  audit_events: Array<{
+    timestamp: string;
+    type: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }>;
 }
 
 export interface Stats {
@@ -38,32 +71,47 @@ export interface Stats {
 
 const API_BASE = 'http://localhost:8000/api';
 
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error((errorData as { detail?: string }).detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export const api = {
+  getHealth: async (): Promise<{ status: string }> => {
+    const res = await fetch(`${API_BASE}/health`);
+    return handleResponse(res);
+  },
+
   getStats: async (): Promise<Stats> => {
     const res = await fetch(`${API_BASE}/stats`);
-    return res.json();
+    return handleResponse(res);
   },
+
   getPayments: async (): Promise<PaymentResult[]> => {
     const res = await fetch(`${API_BASE}/payments`);
-    return res.json();
+    return handleResponse(res);
   },
-  screenBatch: async (): Promise<{status: string, stats: Stats}> => {
+
+  screenBatch: async (): Promise<{ status: string; stats: Stats }> => {
     const res = await fetch(`${API_BASE}/screen-batch`, { method: 'POST' });
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Error: ${res.status}`);
-    }
-    return res.json();
+    return handleResponse(res);
   },
+
   approvePayment: async (id: string): Promise<PaymentResult> => {
-    const res = await fetch(`${API_BASE}/payments/${id}/approve`, { method: 'POST' });
-    return res.json();
+    const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+    return handleResponse(res);
   },
+
   rejectPayment: async (id: string): Promise<PaymentResult> => {
-    const res = await fetch(`${API_BASE}/payments/${id}/reject`, { method: 'POST' });
-    return res.json();
+    const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+    return handleResponse(res);
   },
-  resetDemo: async () => {
-    await fetch(`${API_BASE}/reset-demo`, { method: 'POST' });
-  }
+
+  resetDemo: async (): Promise<{ status: string }> => {
+    const res = await fetch(`${API_BASE}/reset-demo`, { method: 'POST' });
+    return handleResponse(res);
+  },
 };

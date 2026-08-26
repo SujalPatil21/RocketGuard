@@ -1,52 +1,168 @@
-
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
+import { Bell, Settings, User } from 'lucide-react';
 import Overview from './pages/Overview';
 import Payments from './pages/Payments';
 import Activity from './pages/Activity';
+import Pipeline from './pages/Pipeline';
+import './App.css';
 
-const Nav = () => {
-  const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
-  
+// Clean text wordmark — no icon
+const Brand = () => (
+  <span
+    style={{
+      fontFamily: "'Space Grotesk', sans-serif",
+      fontWeight: 700,
+      fontSize: '22px',
+      letterSpacing: '-0.03em',
+      color: '#17191B',
+      lineHeight: 1,
+    }}
+  >
+    RocketGuard
+  </span>
+);
+
+// Horizontal navigation pill
+const NavPill = () => {
+  const items = [
+    { to: '/',          label: 'Overview'     },
+    { to: '/payments',  label: 'Payments'     },
+    { to: '/activity',  label: 'Activity'     },
+    { to: '/pipeline',  label: 'Pipeline'     },
+  ];
+
   return (
-    <nav className="border-b border-border bg-surface px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-8">
-          <div className="flex items-center space-x-2 text-primaryText font-semibold">
-            <ShieldCheck className="w-5 h-5 text-primaryAccent" />
-            <span>AP SENTINEL</span>
-          </div>
-          <div className="flex items-center space-x-6 text-sm text-secondaryText">
-            <Link to="/" className={isActive('/') ? 'text-primaryText font-medium' : 'hover:text-primaryText'}>Overview</Link>
-            <Link to="/payments" className={isActive('/payments') ? 'text-primaryText font-medium' : 'hover:text-primaryText'}>Payments</Link>
-            <Link to="/activity" className={isActive('/activity') ? 'text-primaryText font-medium' : 'hover:text-primaryText'}>Activity</Link>
-          </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 text-xs text-secondaryText font-medium">
-            <div className="w-2 h-2 rounded-full bg-safe"></div>
-            <span>ROCKETRIDE CONNECTED</span>
-          </div>
-        </div>
-      </div>
+    <nav className="nav-pill">
+      {items.map(({ to, label }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={to === '/'}
+          className={({ isActive }) => `nav-pill-item${isActive ? ' active' : ''}`}
+        >
+          {label}
+        </NavLink>
+      ))}
     </nav>
+  );
+};
+
+// Top utility controls
+const UtilityControls = () => (
+  <div className="flex items-center gap-2">
+    <button
+      id="nav-notifications"
+      aria-label="Notifications"
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        background: '#F9FBFD',
+        border: '1px solid rgba(35,50,65,0.10)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'background 180ms ease',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#EEF3FA')}
+      onMouseLeave={e => (e.currentTarget.style.background = '#F9FBFD')}
+    >
+      <Bell size={15} color="#596168" />
+    </button>
+    <button
+      id="nav-settings"
+      aria-label="Settings"
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        background: '#F9FBFD',
+        border: '1px solid rgba(35,50,65,0.10)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'background 180ms ease',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#EEF3FA')}
+      onMouseLeave={e => (e.currentTarget.style.background = '#F9FBFD')}
+    >
+      <Settings size={15} color="#596168" />
+    </button>
+    <button
+      id="nav-profile"
+      aria-label="Profile"
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        background: '#323232',
+        border: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'background 180ms ease',
+      }}
+    >
+      <User size={15} color="#C9CED3" />
+    </button>
+  </div>
+);
+
+// Top navigation bar
+const TopNav = () => (
+  <header
+    style={{
+      background: '#E4EBF5',
+      borderBottom: '1px solid rgba(35, 50, 65, 0.08)',
+      padding: '12px 40px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      position: 'sticky',
+      top: 0,
+      zIndex: 50,
+    }}
+  >
+    <Brand />
+    <NavPill />
+    <UtilityControls />
+  </header>
+);
+
+import { SignIn, SignUp } from './pages/Auth';
+import Landing from './pages/Landing';
+
+// ─────────────────────────────────────────────────────────────────
+// Dashboard Layout (App Shell)
+// ─────────────────────────────────────────────────────────────────
+const DashboardLayout = () => {
+  return (
+    <div style={{ minHeight: '100vh', background: '#E4EBF5' }}>
+      <TopNav />
+      <main style={{ maxWidth: 1440, margin: '0 auto', padding: '40px 40px 60px' }}>
+        <Routes>
+          <Route path="/"         element={<Overview />} />
+          <Route path="/payments" element={<Payments />} />
+          <Route path="/activity" element={<Activity />} />
+          <Route path="/pipeline" element={<Pipeline />} />
+        </Routes>
+      </main>
+    </div>
   );
 };
 
 export default function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-background flex flex-col font-sans">
-        <Nav />
-        <main className="flex-1 max-w-7xl w-full mx-auto p-6">
-          <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/payments" element={<Payments />} />
-            <Route path="/activity" element={<Activity />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/sign-in" element={<SignIn />} />
+        <Route path="/sign-up" element={<SignUp />} />
+        <Route path="/app/*" element={<DashboardLayout />} />
+      </Routes>
     </Router>
   );
 }

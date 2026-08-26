@@ -1,223 +1,599 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Search, X, AlertTriangle } from 'lucide-react';
 import { api } from '../lib/api';
 import type { PaymentResult } from '../lib/api';
-import { X, CheckCircle2 } from 'lucide-react';
 
-export default function Payments() {
-  const [payments, setPayments] = useState<PaymentResult[]>([]);
-  const [selected, setSelected] = useState<PaymentResult | null>(null);
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
 
-  useEffect(() => {
-    load();
-  }, []);
+function fmtAmount(amount: number, currency: string = 'INR'): string {
+  if (currency === 'INR') return `₹${amount.toLocaleString('en-IN')}`;
+  return `${currency} ${amount.toLocaleString()}`;
+}
 
-  const load = async () => {
-    const data = await api.getPayments();
-    setPayments(data);
-    
-    // Check URL for specific payment to review
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    if (id) {
-      const p = data.find(p => p.payment.invoice_id === id);
-      if (p) {
-        setSelected(p);
-      }
-      // Clean up URL without reload
-      window.history.replaceState({}, '', '/payments');
-    }
-  };
+function riskColor(score: number): string {
+  if (score >= 80) return '#F04B4B';
+  if (score >= 60) return '#F28A45';
+  if (score >= 40) return '#E9C84A';
+  if (score > 0)   return '#7DBF9A';
+  return '#92999F';
+}
+
+function statusColor(status: string): string {
+  switch (status) {
+    case 'CLEAR':         return '#7DBF9A';
+    case 'HELD':          return '#F04B4B';
+    case 'APPROVED':      return '#7DBF9A';
+    case 'REJECTED':      return '#F04B4B';
+    case 'UNPROCESSABLE': return '#E9C84A';
+    default:              return '#92999F';
+  }
+}
+
+type FilterType = 'All' | 'HELD' | 'CLEAR' | 'APPROVED' | 'REJECTED' | 'UNPROCESSABLE' | 'PENDING';
+
+// ──────────────────────────────────────────────
+// Risk bar
+// ──────────────────────────────────────────────
+
+function RiskBar({ score }: { score: number }) {
+  const color = riskColor(score);
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>
+          Risk Score
+        </span>
+        <span
+          style={{
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: '24px',
+            fontWeight: 500,
+            color,
+          }}
+        >
+          {score}<span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)' }}>/100</span>
+        </span>
+      </div>
+      <div
+        style={{
+          width: '100%',
+          height: '5px',
+          background: 'rgba(255,255,255,0.15)',
+          borderRadius: '9999px',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${score}%`,
+            height: '100%',
+            background: color,
+            borderRadius: '9999px',
+            transition: 'width 300ms ease',
+          }}
+        />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>LOW</span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>CRITICAL</span>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Transaction row
+// ──────────────────────────────────────────────
+
+interface TxnRowProps {
+  payment: PaymentResult;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+function TxnRow({ payment, isSelected, onClick }: TxnRowProps) {
+  const sc = statusColor(payment.status);
+  const rc = riskColor(payment.risk_score);
+
+  return (
+    <div
+      onClick={onClick}
+      className={`txn-row${isSelected ? ' selected' : ''}`}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 500, color: isSelected ? '#17191B' : '#F9FBFD', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {payment.payment.vendor_name}
+          </div>
+          <div style={{ fontSize: '11px', color: isSelected ? '#596168' : '#9DB1BF', fontFamily: 'monospace' }}>
+            {payment.payment.invoice_id}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: isSelected ? '#17191B' : '#F9FBFD', marginBottom: '3px' }}>
+            {fmtAmount(payment.payment.amount, payment.payment.currency)}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+            <span style={{ fontSize: '10px', fontWeight: 500, color: sc }}>{payment.status}</span>
+            {payment.risk_score > 0 && (
+              <span style={{ fontSize: '10px', color: rc, fontWeight: 600 }}>{payment.risk_score}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Detail Panel
+// ──────────────────────────────────────────────
+
+interface DetailPanelProps {
+  payment: PaymentResult;
+  onClose: () => void;
+  onApproved: (p: PaymentResult) => void;
+  onRejected: (p: PaymentResult) => void;
+}
+
+function DetailPanel({ payment, onClose, onApproved, onRejected }: DetailPanelProps) {
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const canAct = payment.status === 'HELD' || payment.status === 'UNPROCESSABLE';
+  const sc = statusColor(payment.status);
 
   const handleApprove = async () => {
-    if (selected) {
-      const updated = await api.approvePayment(selected.payment.invoice_id);
-      setSelected(updated);
-      await load();
+    if (approving || rejecting) return;
+    setApproving(true);
+    setActionError(null);
+    try {
+      const updated = await api.approvePayment(payment.payment.invoice_id);
+      onApproved(updated);
+    } catch (err: unknown) {
+      setActionError((err as Error).message || 'Approval failed.');
+    } finally {
+      setApproving(false);
     }
   };
 
   const handleReject = async () => {
-    if (selected) {
-      const updated = await api.rejectPayment(selected.payment.invoice_id);
-      setSelected(updated);
-      await load();
+    if (approving || rejecting) return;
+    setRejecting(true);
+    setActionError(null);
+    try {
+      const updated = await api.rejectPayment(payment.payment.invoice_id);
+      onRejected(updated);
+    } catch (err: unknown) {
+      setActionError((err as Error).message || 'Rejection failed.');
+    } finally {
+      setRejecting(false);
     }
   };
 
+  const p = payment.payment;
+  const hcr = payment.history_checker_result;
+
   return (
-    <div className="flex gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 h-[calc(100vh-8rem)]">
-      <div className={`flex-1 flex flex-col space-y-4 ${selected ? 'hidden lg:flex' : 'flex'}`}>
+    <div
+      className="detail-panel"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        animation: 'fadeIn 0.18s ease-out',
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 className="text-3xl font-medium tracking-tight text-primaryText">Payments</h1>
-          <p className="text-secondaryText mt-1">Review screened vendor payment requests.</p>
-        </div>
-        
-        <div className="flex-1 bg-surface border border-border rounded-xl overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <input 
-              type="text" 
-              placeholder="Search invoice or vendor..." 
-              className="bg-elevated border border-border rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:border-primaryAccent"
-            />
+          {/* Invoice ID — clearly visible on #849FB0 panel */}
+          <div style={{ fontSize: '11px', fontFamily: 'monospace', color: '#3E5462', marginBottom: '4px', fontWeight: 500 }}>
+            {p.invoice_id}
           </div>
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-elevated border-b border-border sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 font-medium text-secondaryText">Invoice</th>
-                  <th className="px-4 py-3 font-medium text-secondaryText">Vendor</th>
-                  <th className="px-4 py-3 font-medium text-secondaryText">Amount</th>
-                  <th className="px-4 py-3 font-medium text-secondaryText">Risk</th>
-                  <th className="px-4 py-3 font-medium text-secondaryText">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {payments.map(p => (
-                  <tr 
-                    key={p.payment.invoice_id} 
-                    onClick={() => setSelected(p)}
-                    className={`transition-colors cursor-pointer ${selected?.payment.invoice_id === p.payment.invoice_id ? 'bg-elevated' : 'hover:bg-elevated/50'}`}
-                  >
-                    <td className="px-4 py-3 font-mono">{p.payment.invoice_id}</td>
-                    <td className="px-4 py-3">{p.payment.vendor_name}</td>
-                    <td className="px-4 py-3">${p.payment.amount.toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      <span className={p.risk_score > 50 ? 'text-danger font-medium' : 'text-secondaryText'}>{p.risk_score}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        p.status === 'CLEAR' ? 'bg-safe/10 text-safe' :
-                        p.status === 'HELD' ? 'bg-danger/10 text-danger' :
-                        p.status === 'APPROVED' ? 'bg-safe/20 text-safe' :
-                        p.status === 'REJECTED' ? 'bg-danger/20 text-danger' :
-                        'bg-muted/10 text-secondaryText'
-                      }`}>
-                        {p.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div
+            style={{
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#17191B',
+              marginBottom: '4px',
+            }}
+          >
+            {p.vendor_name}
           </div>
+          <span
+            style={{
+              display: 'inline-block',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              color: sc,
+              background: `${sc}25`,
+              borderRadius: '9999px',
+              padding: '2px 8px',
+            }}
+          >
+            {payment.status}
+          </span>
         </div>
+        <button
+          id="close-detail-btn"
+          onClick={onClose}
+          style={{
+            background: 'rgba(23,25,27,0.15)',
+            border: 'none',
+            borderRadius: '50%',
+            width: 30,
+            height: 30,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <X size={14} color="#17191B" />
+        </button>
       </div>
 
-      {selected && (
-        <div className="w-full lg:w-[480px] bg-surface border border-border rounded-xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-right-8 duration-300">
-          <div className="p-4 border-b border-border flex items-center justify-between bg-elevated">
-            <div>
-              <div className="font-mono text-sm text-secondaryText">{selected.payment.invoice_id}</div>
-              <div className="font-medium text-lg">{selected.payment.vendor_name}</div>
-            </div>
-            <button onClick={() => setSelected(null)} className="p-2 hover:bg-surface rounded-lg transition-colors">
-              <X className="w-5 h-5 text-secondaryText" />
-            </button>
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+        {/* Risk score bar */}
+        {payment.risk_score > 0 && (
+          <div
+            style={{
+              background: '#323232',
+              borderRadius: '14px',
+              padding: '16px',
+            }}
+          >
+            <RiskBar score={payment.risk_score} />
           </div>
-          
-          <div className="flex-1 overflow-auto p-6 space-y-6">
-            <div className="flex items-center bg-primaryAccent/10 border border-primaryAccent/20 text-primaryAccent px-3 py-1.5 rounded-lg text-xs font-medium w-fit mb-2">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-              Simulated Demo Payment
-            </div>
-            <div className="flex items-center justify-between pb-6 border-b border-border">
-              <div>
-                <div className="text-3xl font-semibold tracking-tight">${selected.payment.amount.toLocaleString()}</div>
-                <div className={`text-sm font-medium mt-1 ${selected.status === 'HELD' || selected.status === 'REJECTED' ? 'text-danger' : selected.status === 'UNPROCESSABLE' ? 'text-warning' : 'text-safe'}`}>{selected.status}</div>
-              </div>
-              <div className="text-right text-sm space-y-1 text-secondaryText">
-                <div>Bank: <span className="font-mono text-primaryText">••••{selected.payment.bank_account.slice(-4)}</span></div>
-                <div>Due: <span className="text-primaryText">{selected.payment.due_date}</span></div>
-              </div>
-            </div>
+        )}
 
-            <div className="space-y-3 pb-6 border-b border-border text-sm">
-              <div className="flex"><span className="text-secondaryText w-24">Requester:</span> <span className="font-medium text-primaryText">{selected.payment.requested_by}</span></div>
-              <div className="flex"><span className="text-secondaryText w-24">Message:</span> <span className="text-primaryText">{selected.payment.request_message}</span></div>
-            </div>
-
-            {selected.history_checker_result && (
-              <div className="space-y-4">
-                <div className="bg-elevated rounded-xl p-4 border border-border">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-semibold tracking-wide uppercase text-secondaryText">AI Screening Result</div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${selected.history_checker_result.status === 'FLAG' ? 'bg-danger/10 text-danger' : 'bg-safe/10 text-safe'}`}>
-                      {selected.history_checker_result.status}
-                    </span>
-                  </div>
-                  <p className="text-sm">{selected.history_checker_result.summary}</p>
-                </div>
-                
-                {selected.signals && selected.signals.length > 0 && (
-                  <div className="bg-elevated rounded-xl p-4 border border-border">
-                    <div className="text-sm font-semibold tracking-wide uppercase text-secondaryText mb-2">Signals</div>
-                    <ul className="list-disc list-inside text-sm space-y-1">
-                      {selected.signals.map((sig, i) => (
-                        <li key={i}>{sig}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+        {/* Payment info */}
+        <div style={{ background: 'rgba(255,255,255,0.35)', borderRadius: '14px', padding: '16px' }}>
+          {/* Section header — explicit color, not low-opacity */}
+          <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3E5462', marginBottom: '12px' }}>
+            Payment Details
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              { label: 'Amount',    value: fmtAmount(p.amount, p.currency) },
+              { label: 'Requester', value: p.requested_by },
+              { label: 'Bank',      value: `••••${p.bank_account.slice(-4)}` },
+              { label: 'IFSC',      value: p.ifsc },
+              { label: 'Due',       value: p.due_date },
+              { label: 'Type',      value: p.request_type },
+            ].map(row => (
+              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                {/* Label — solid color, clearly readable */}
+                <span style={{ fontSize: '12px', color: '#4A6070', fontWeight: 500 }}>{row.label}</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#17191B', fontFamily: row.label === 'Bank' || row.label === 'IFSC' ? 'monospace' : 'inherit' }}>
+                  {row.value}
+                </span>
               </div>
+            ))}
+          </div>
+          {p.request_message && (
+            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(23,25,27,0.12)' }}>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: '#3E5462', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Message</div>
+              <div style={{ fontSize: '12px', color: '#17191B', lineHeight: 1.5 }}>{p.request_message}</div>
+            </div>
+          )}
+        </div>
+
+        {/* AI Screening result */}
+        {hcr && (
+          <div style={{ background: 'rgba(50,50,50,0.18)', borderRadius: '14px', padding: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3E5462', marginBottom: '12px' }}>
+              Screening Result
+            </div>
+            {hcr.summary && (
+              <p style={{ fontSize: '12px', color: '#17191B', lineHeight: 1.6, marginBottom: '10px' }}>
+                {hcr.summary}
+              </p>
             )}
-
-            {selected.verifier_result && (
-              <div className="bg-elevated rounded-xl p-4 border border-border">
-                <div className="text-sm font-semibold tracking-wide uppercase text-secondaryText mb-2">Verification Instruction</div>
-                <p className="text-sm">{selected.verifier_result.instruction}</p>
-                {selected.verifier_result.trusted_source && (
-                  <p className="text-sm text-secondaryText mt-2">Source: <span className="font-medium text-primaryText">{selected.verifier_result.trusted_source}</span></p>
-                )}
-              </div>
-            )}
-
-            <div className="pt-6 border-t border-border">
-              <div className="text-sm font-semibold tracking-wide uppercase text-secondaryText mb-4">Audit Trail</div>
-              <div className="space-y-4">
-                {selected.audit_events.map((evt, i) => (
-                  <div key={i} className="flex space-x-3 text-sm">
-                    <div className="text-xs text-secondaryText w-16 pt-0.5 font-mono">
-                      {new Date(evt.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">{evt.type.replace(/_/g, ' ')}</div>
-                      <div className="text-secondaryText text-xs mt-0.5">{evt.message}</div>
-                    </div>
+            {payment.signals && payment.signals.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {payment.signals.map((sig, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      fontSize: '12px',
+                      color: '#17191B',
+                      background: 'rgba(240,75,75,0.10)',
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <span style={{ color: '#F04B4B', fontSize: '10px' }}>●</span>
+                    {sig}
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Verification */}
+        {payment.verifier_result?.verificationRequired && (
+          <div style={{ background: 'rgba(233,200,74,0.18)', borderRadius: '14px', padding: '16px', border: '1px solid rgba(233,200,74,0.35)' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3E5462', marginBottom: '8px' }}>
+              Verification Required
+            </div>
+            <p style={{ fontSize: '12px', color: '#17191B', lineHeight: 1.5, marginBottom: '6px' }}>
+              {payment.verifier_result.instruction}
+            </p>
+            {payment.verifier_result.trustedSource && (
+              <p style={{ fontSize: '11px', color: '#4A6070', fontWeight: 500 }}>
+                Source: <span style={{ fontWeight: 600, color: '#17191B' }}>{payment.verifier_result.trustedSource}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Audit trail */}
+        {payment.audit_events.length > 0 && (
+          <div style={{ background: 'rgba(255,255,255,0.25)', borderRadius: '14px', padding: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3E5462', marginBottom: '10px' }}>
+              Audit Trail
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {payment.audit_events.slice().reverse().map((evt, i) => (
+                <div key={i} style={{ display: 'flex', gap: '10px' }}>
+                  {/* Timestamp — was rgba(23,25,27,0.40), nearly invisible */}
+                  <span style={{ fontSize: '10px', color: '#4A6070', fontFamily: 'monospace', whiteSpace: 'nowrap', paddingTop: '2px', minWidth: '42px', fontWeight: 500 }}>
+                    {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#17191B' }}>
+                      {evt.type.replace(/_/g, ' ')}
+                    </div>
+                    {/* Message — was rgba(23,25,27,0.55), now explicit readable color */}
+                    <div style={{ fontSize: '11px', color: '#3E5462', fontWeight: 500 }}>{evt.message}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="p-4 border-t border-border bg-elevated flex gap-3">
-            {(selected.status === 'HELD' || selected.status === 'UNPROCESSABLE') && (
-              <>
-                <button onClick={handleReject} className="flex-1 bg-surface border border-border hover:bg-danger/10 hover:border-danger/30 hover:text-danger px-4 py-2 rounded-lg font-medium transition-colors text-sm">
-                  REJECT PAYMENT
+      {/* Action area */}
+      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(23,25,27,0.12)' }}>
+        {actionError && (
+          <div style={{ fontSize: '12px', color: '#F04B4B', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <AlertTriangle size={12} /> {actionError}
+          </div>
+        )}
+
+        {canAct ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button
+              id={`reject-btn-${payment.payment.invoice_id}`}
+              className="btn-danger"
+              onClick={handleReject}
+              disabled={rejecting || approving}
+              style={{ textAlign: 'center' }}
+            >
+              {rejecting ? 'Rejecting…' : 'Reject'}
+            </button>
+            <button
+              id={`approve-btn-${payment.payment.invoice_id}`}
+              className="btn-primary"
+              onClick={handleApprove}
+              disabled={approving || rejecting}
+              style={{ textAlign: 'center' }}
+            >
+              {approving ? 'Approving…' : 'Approve'}
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '10px',
+              background: `${statusColor(payment.status)}15`,
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: statusColor(payment.status),
+            }}
+          >
+            {payment.status === 'CLEAR' ? 'Payment Cleared by AI' : payment.status}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Payments Page
+// ──────────────────────────────────────────────
+
+export default function Payments() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [payments, setPayments] = useState<PaymentResult[]>([]);
+  const [selected, setSelected] = useState<PaymentResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterType>('All');
+  const [search, setSearch] = useState('');
+  const loadedId = useRef<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.getPayments();
+      setPayments(data);
+      return data;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load().then(data => {
+      const params = new URLSearchParams(location.search);
+      const id = params.get('id');
+      if (id && id !== loadedId.current) {
+        loadedId.current = id;
+        const found = data.find(p => p.payment.invoice_id === id);
+        if (found) setSelected(found);
+        navigate('/payments', { replace: true });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleApproved = async (updated: PaymentResult) => {
+    setSelected(updated);
+    const fresh = await load();
+    const refreshed = fresh.find(p => p.payment.invoice_id === updated.payment.invoice_id);
+    if (refreshed) setSelected(refreshed);
+  };
+
+  const handleRejected = async (updated: PaymentResult) => {
+    setSelected(updated);
+    const fresh = await load();
+    const refreshed = fresh.find(p => p.payment.invoice_id === updated.payment.invoice_id);
+    if (refreshed) setSelected(refreshed);
+  };
+
+  // Filter options that have at least 1 payment
+  const statusCounts: Record<string, number> = {};
+  payments.forEach(p => {
+    statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
+  });
+
+  const filters: FilterType[] = ['All', 'HELD', 'UNPROCESSABLE', 'CLEAR', 'APPROVED', 'REJECTED', 'PENDING'];
+
+  const filtered = payments.filter(p => {
+    const matchFilter = filter === 'All' || p.status === filter;
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      p.payment.invoice_id.toLowerCase().includes(q) ||
+      p.payment.vendor_name.toLowerCase().includes(q) ||
+      p.payment.requested_by.toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* ── Page header ─────────────────────────── */}
+      <div>
+        <h1
+          style={{
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: '36px',
+            fontWeight: 400,
+            color: '#17191B',
+            letterSpacing: '-0.02em',
+            marginBottom: '6px',
+          }}
+        >
+          Payments
+        </h1>
+        <p style={{ fontSize: '14px', color: '#596168' }}>
+          Review screened vendor payment requests. {payments.length > 0 && `${payments.length} total.`}
+        </p>
+      </div>
+
+      {/* ── Dark workspace ────────────────────── */}
+      <div className="workspace-dark" style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '600px' }}>
+
+        {/* Workspace toolbar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          {/* Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {filters.map(f => {
+              const count = f === 'All' ? payments.length : (statusCounts[f] || 0);
+              if (f !== 'All' && count === 0) return null;
+              return (
+                <button
+                  key={f}
+                  id={`filter-${f}`}
+                  onClick={() => setFilter(f)}
+                  className={`filter-pill${filter === f ? ' active' : ''}`}
+                >
+                  {f === 'UNPROCESSABLE' ? 'Unprocessable' : f === 'All' ? `All ${payments.length}` : `${f} ${count}`}
                 </button>
-                <button onClick={handleApprove} className="flex-1 bg-primaryAccent hover:bg-opacity-90 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
-                  APPROVE PAYMENT
-                </button>
-              </>
-            )}
-            {selected.status === 'CLEAR' && (
-              <div className="flex-1 text-center py-2 text-safe font-medium text-sm border border-safe/20 bg-safe/10 rounded-lg">
-                PAYMENT CLEARED
-              </div>
-            )}
-            {selected.status === 'APPROVED' && (
-              <div className="flex-1 text-center py-2 text-safe font-medium text-sm border border-safe/20 bg-safe/10 rounded-lg">
-                APPROVED
-              </div>
-            )}
-            {selected.status === 'REJECTED' && (
-              <div className="flex-1 text-center py-2 text-danger font-medium text-sm border border-danger/20 bg-danger/10 rounded-lg">
-                REJECTED
-              </div>
-            )}
+              );
+            })}
+          </div>
+
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <Search size={13} color="#9DB1BF" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              id="payment-search"
+              type="text"
+              placeholder="Search invoice, vendor…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input-light"
+              style={{ paddingLeft: '32px', width: '220px' }}
+            />
           </div>
         </div>
-      )}
+
+        {/* Content: list + detail */}
+        <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 380px' : '1fr', gap: '12px', alignItems: 'start' }}>
+
+          {/* Transaction list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: '#525353',
+                    borderRadius: '14px',
+                    height: '60px',
+                    opacity: 1 - i * 0.15,
+                  }}
+                  className="skeleton"
+                />
+              ))
+            ) : filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#9DB1BF', fontSize: '13px' }}>
+                {search || filter !== 'All' ? 'No payments match your filter.' : 'No payments loaded yet.'}
+              </div>
+            ) : (
+              filtered.map(p => (
+                <TxnRow
+                  key={p.payment.invoice_id}
+                  payment={p}
+                  isSelected={selected?.payment.invoice_id === p.payment.invoice_id}
+                  onClick={() => setSelected(selected?.payment.invoice_id === p.payment.invoice_id ? null : p)}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Detail panel */}
+          {selected && (
+            <div style={{ position: 'sticky', top: '80px' }}>
+              <DetailPanel
+                payment={selected}
+                onClose={() => setSelected(null)}
+                onApproved={handleApproved}
+                onRejected={handleRejected}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

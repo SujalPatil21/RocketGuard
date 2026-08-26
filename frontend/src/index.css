@@ -2,7 +2,295 @@
 @config "../tailwind.config.js";
 
 @layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   body {
-    @apply bg-background text-primaryText font-sans antialiased selection:bg-primaryAccent selection:text-white;
+    background-color: #E4EBF5;
+    color: #17191B;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: #DDF625;
+    color: #17191B;
+  }
+
+  /* Scrollbar styling — subtle, professional */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #9DB1BF;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #849FB0;
+  }
+}
+
+@layer components {
+  /* KPI card — large light card */
+  .kpi-card {
+    background: #D2E2F9;
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: 0 8px 30px rgba(35, 50, 65, 0.07);
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(35, 50, 65, 0.10);
+  }
+
+  /* Analytics card */
+  .analytics-card {
+    background: #D2E2F9;
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: 0 8px 30px rgba(35, 50, 65, 0.07);
+  }
+
+  /* Light surface card (inputs, controls) */
+  .surface-white {
+    background: #F9FBFD;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(35, 50, 65, 0.06);
+  }
+
+  /* Dark workspace container */
+  .workspace-dark {
+    background: #323232;
+    border-radius: 28px;
+    padding: 24px;
+    box-shadow: 0 16px 48px rgba(35, 50, 65, 0.10);
+  }
+
+  /* Transaction row in dark workspace */
+  .txn-row {
+    background: #525353;
+    border-radius: 16px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 180ms ease, transform 180ms ease;
+  }
+  .txn-row:hover {
+    background: #5d5e5e;
+    transform: translateY(-1px);
+  }
+  .txn-row.selected {
+    background: #849FB0;
+  }
+
+  /* Detail panel — blue-gray selected transaction */
+  .detail-panel {
+    background: #849FB0;
+    border-radius: 22px;
+    padding: 24px;
+  }
+
+  /* Nav pill */
+  .nav-pill {
+    background: #323232;
+    border-radius: 9999px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .nav-pill-item {
+    padding: 7px 16px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #C9CED3;
+    cursor: pointer;
+    transition: color 180ms ease, background 180ms ease;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .nav-pill-item:hover {
+    color: #E8EAED;
+  }
+  .nav-pill-item.active {
+    background: #DDF625;
+    color: #17191B;
+    font-weight: 600;
+  }
+
+  /* Primary button — lime */
+  .btn-primary {
+    background: #DDF625;
+    color: #17191B;
+    border-radius: 14px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: transform 180ms ease, filter 180ms ease;
+    white-space: nowrap;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Secondary light button */
+  .btn-secondary {
+    background: #F9FBFD;
+    color: #323232;
+    border-radius: 14px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid rgba(35, 50, 65, 0.12);
+    transition: background 180ms ease, border-color 180ms ease;
+    white-space: nowrap;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: #EEF3FA;
+  }
+  .btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Secondary dark button */
+  .btn-dark {
+    background: #525353;
+    color: #F9FBFD;
+    border-radius: 14px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 180ms ease;
+    white-space: nowrap;
+  }
+  .btn-dark:hover:not(:disabled) {
+    background: #5d5e5e;
+  }
+  .btn-dark:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Destructive button */
+  .btn-danger {
+    background: #F04B4B;
+    color: #fff;
+    border-radius: 14px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: filter 180ms ease;
+    white-space: nowrap;
+  }
+  .btn-danger:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
+  .btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Light filter pill */
+  .filter-pill {
+    background: #F9FBFD;
+    color: #323232;
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 180ms ease, border-color 180ms ease;
+    white-space: nowrap;
+  }
+  .filter-pill:hover {
+    background: #EEF3FA;
+  }
+  .filter-pill.active {
+    background: #DDF625;
+    color: #17191B;
+    border-color: transparent;
+    font-weight: 600;
+  }
+
+  /* Status dot */
+  .status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Risk bar container */
+  .risk-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .risk-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 300ms ease;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(35,50,65,0.06) 25%, rgba(35,50,65,0.10) 50%, rgba(35,50,65,0.06) 75%);
+    background-size: 400% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Input field — light */
+  .input-light {
+    background: #F9FBFD;
+    border: 1px solid rgba(35, 50, 65, 0.12);
+    border-radius: 14px;
+    padding: 9px 14px;
+    font-size: 13px;
+    color: #17191B;
+    outline: none;
+    transition: border-color 180ms ease;
+    font-family: 'Inter', sans-serif;
+  }
+  .input-light::placeholder {
+    color: #9DB1BF;
+  }
+  .input-light:focus {
+    border-color: #849FB0;
+    box-shadow: 0 0 0 3px rgba(132, 159, 176, 0.15);
   }
 }
