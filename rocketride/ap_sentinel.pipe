@@ -1,0 +1,87 @@
+{
+  "components": [
+    {
+      "id": "chat_1",
+      "provider": "chat",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "chat"
+      }
+    },
+    {
+      "id": "agent_rocketride_1",
+      "provider": "agent_rocketride",
+      "config": {
+        "instructions": [
+          "You are AP Sentinel, an AI agent designed to detect Business Email Compromise (BEC) patterns in payments.",
+          "Compare the provided payment details against standard vendor history.",
+          "Analyze the payment for BEC patterns such as changed bank details or unusual urgency.",
+          "Your final response must be ONLY this minimal JSON:",
+          "{\n  \"status\": \"CLEAR|FLAG\",\n  \"riskScore\": 0,\n  \"summary\": \"one short sentence\"\n}",
+          "Do not include thought, scratch, reasoning, markdown, nested objects, or long explanations in your final output."
+        ],
+        "max_waves": 10,
+        "parameters": {}
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "chat_1"
+        }
+      ]
+    },
+    {
+      "id": "llm_ollama_1",
+      "provider": "llm_ollama",
+      "config": {
+        "profile": "custom",
+        "custom": {
+          "model": "llama3.2",
+          "serverbase": "http://127.0.0.1:11434"
+        },
+        "parameters": {}
+      },
+      "control": [
+        {
+          "classType": "llm",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    },
+    {
+      "id": "memory_internal_1",
+      "provider": "memory_internal",
+      "config": {
+        "type": "memory_internal"
+      },
+      "control": [
+        {
+          "classType": "memory",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "config": {
+        "laneName": "answers"
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "agent_rocketride_1"
+        }
+      ]
+    }
+  ],
+  "project_id": "93f6b95b-0a7d-4c3e-8c65-0a4e76a6b8c9",
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "zoom": 1
+  },
+  "version": 1
+}

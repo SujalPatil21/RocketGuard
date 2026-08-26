@@ -1,0 +1,58 @@
+[
+  {
+    "invoice_id": "INV-014",
+    "vendor_id": "V-1001",
+    "vendor_name": "Acme Supplies",
+    "amount": 2400.0,
+    "currency": "USD",
+    "due_date": "2026-09-01",
+    "bank_account": "88880001",
+    "ifsc": "ACME0001",
+    "requested_by": "John Doe",
+    "request_message": "Monthly office supplies.",
+    "submitted_at": "2026-08-26T10:00:00Z",
+    "request_type": "STANDARD"
+  },
+  {
+    "invoice_id": "INV-017",
+    "vendor_id": "V-1001",
+    "vendor_name": "Acme Supplies",
+    "amount": 150000.0,
+    "currency": "USD",
+    "due_date": "2026-08-26",
+    "bank_account": "99999132",
+    "ifsc": "UNKN0001",
+    "requested_by": "CEO",
+    "request_message": "URGENT \u00e2\u20ac\u201d please update the bank details and process payment today.",
+    "submitted_at": "2026-08-26T10:15:00Z",
+    "request_type": "WIRE"
+  },
+  {
+    "invoice_id": "INV-016",
+    "vendor_id": "V-1003",
+    "vendor_name": "Skyline Design Partners",
+    "amount": 4500.0,
+    "currency": "USD",
+    "due_date": "2026-08-26",
+    "bank_account": "88880003",
+    "ifsc": "SKYL0003",
+    "requested_by": "Bob Williams",
+    "request_message": "URGENT: Please process today or service will be suspended immediately.",
+    "submitted_at": "2026-08-26T10:10:00Z",
+    "request_type": "EXPEDITED"
+  },
+  {
+    "invoice_id": "INV-019",
+    "vendor_id": "V-1002",
+    "vendor_name": "Global Tech Logistics",
+    "amount": 0.0,
+    "currency": "USD",
+    "due_date": "2026-09-02",
+    "bank_account": "",
+    "ifsc": "GLOB0002",
+    "requested_by": "Alice Johnson",
+    "request_message": "Missing info.",
+    "submitted_at": "2026-08-26T10:25:00Z",
+    "request_type": "STANDARD"
+  }
+]

@@ -1,0 +1,54 @@
+[
+  {
+    "vendor_id": "V-1001",
+    "vendor_name": "Acme Supplies",
+    "trusted_phone": "+1-555-0101",
+    "trusted_email": "billing@acmesupplies.com",
+    "bank_account": "88880001",
+    "ifsc": "ACME0001",
+    "usual_approvers": [
+      "John Doe",
+      "Jane Smith"
+    ],
+    "usual_amount_range": [
+      1000,
+      50000
+    ],
+    "currency": "USD",
+    "payment_frequency": "Monthly"
+  },
+  {
+    "vendor_id": "V-1002",
+    "vendor_name": "Global Tech Logistics",
+    "trusted_phone": "+1-555-0102",
+    "trusted_email": "finance@globaltechlog.com",
+    "bank_account": "88880002",
+    "ifsc": "GLOB0002",
+    "usual_approvers": [
+      "Alice Johnson"
+    ],
+    "usual_amount_range": [
+      50000,
+      200000
+    ],
+    "currency": "USD",
+    "payment_frequency": "Weekly"
+  },
+  {
+    "vendor_id": "V-1003",
+    "vendor_name": "Skyline Design Partners",
+    "trusted_phone": "+1-555-0103",
+    "trusted_email": "invoicing@skylinedp.com",
+    "bank_account": "88880003",
+    "ifsc": "SKYL0003",
+    "usual_approvers": [
+      "Bob Williams"
+    ],
+    "usual_amount_range": [
+      500,
+      5000
+    ],
+    "currency": "USD",
+    "payment_frequency": "Bi-Weekly"
+  }
+]

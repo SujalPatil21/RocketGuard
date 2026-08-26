@@ -1,0 +1,32 @@
+{
+  "V-1001": [
+    {
+      "invoice_id": "INV-001",
+      "amount": 2300,
+      "date": "2026-07-01",
+      "bank_account": "88880001"
+    },
+    {
+      "invoice_id": "INV-005",
+      "amount": 2500,
+      "date": "2026-08-01",
+      "bank_account": "88880001"
+    }
+  ],
+  "V-1002": [
+    {
+      "invoice_id": "INV-002",
+      "amount": 80000,
+      "date": "2026-08-15",
+      "bank_account": "88880002"
+    }
+  ],
+  "V-1003": [
+    {
+      "invoice_id": "INV-003",
+      "amount": 4000,
+      "date": "2026-08-10",
+      "bank_account": "88880003"
+    }
+  ]
+}
