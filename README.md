@@ -30,7 +30,7 @@ It combines **multi-agent AI screening**, **vendor-history cross-checking**, **o
 - [Future Scope](#future-scope)
 - [Limitations](#limitations)
 - [Contributing](#contributing)
-- [License](#license)
+
 
 ---
 
