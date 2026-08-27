@@ -66,8 +66,11 @@ demo_state = {
 }
 
 def load_initial_data():
+    from pathlib import Path
     try:
-        with open("../data/payments.json", "r") as f:
+        project_root = Path(__file__).resolve().parents[2]
+        data_path = project_root / "data" / "payments.json"
+        with open(data_path, "r") as f:
             payments_data = json.load(f)
             demo_state["payments"] = []
             for p_data in payments_data:
