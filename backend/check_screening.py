@@ -19,7 +19,7 @@ async def test_screening():
         }
     }
     
-    pipe_path = "../../rocketride/ap_sentinel.pipe"
+    pipe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "rocketride", "ap_sentinel.pipe"))
     print("Running pipeline...")
     result = await run_pipeline(pipe_path, payment_data)
     print("Pipeline result:", result)

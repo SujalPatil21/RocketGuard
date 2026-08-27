@@ -69,8 +69,8 @@ export interface Stats {
   tokens: number;
 }
 
-const API_BASE = 'http://localhost:8000/api';
-const AUTH_BASE = 'http://localhost:8000/auth';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : 'http://localhost:8000/api';
+const AUTH_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/auth` : 'http://localhost:8000/auth';
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('rg_token');

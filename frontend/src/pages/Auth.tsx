@@ -99,6 +99,7 @@ function Field({
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled?: boolean;
 }) {
+  const autoComplete = type === 'password' ? 'new-password' : 'off';
   return (
     <div style={{ marginBottom: 20 }}>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textPrimary, marginBottom: 6 }}>
@@ -110,6 +111,7 @@ function Field({
         value={value}
         onChange={onChange}
         disabled={disabled}
+        autoComplete={autoComplete}
         className="input-light"
         style={{ width: '100%' }}
       />

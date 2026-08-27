@@ -7,4 +7,5 @@ sqlalchemy
 bcrypt
 pyjwt
 email-validator
-jinja2pydantic-settings
+jinja2
+pydantic-settings

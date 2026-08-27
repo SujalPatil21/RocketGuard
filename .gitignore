@@ -16,4 +16,4 @@ frontend/dist/
 # Root-level Python artefacts
 __pycache__/
 *.pyc
-*.pyo
+*.pyobackend/auth.db

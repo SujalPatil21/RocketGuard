@@ -17,9 +17,14 @@ from .db.database import create_tables
 
 app = FastAPI(title="AP Sentinel API")
 
+import os
+
+cors_origins_env = os.environ.get("CORS_ORIGINS", "*")
+origins = [origin.strip() for origin in cors_origins_env.split(",")] if cors_origins_env != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -131,6 +136,10 @@ async def screen_batch(current_user=Depends(get_current_user)):
                 import os
                 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 pipe_path = os.path.join(project_root, "rocketride", "ap_sentinel.pipe")
+                
+                # Local fallback mechanism
+                if os.environ.get("ROCKETRIDE_URI"):
+                    pipe_path = os.path.join(project_root, "rocketride", "ap_sentinel_local.pipe")
                 
                 result = await run_pipeline(pipe_path, {"payment": req.model_dump()})
                 
