@@ -347,15 +347,17 @@ export default function Overview() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [payments, setPayments] = useState<PaymentResult[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [screening, setScreening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [s, p] = await Promise.all([api.getStats(), api.getPayments()]);
+      const [s, p, c] = await Promise.all([api.getStats(), api.getPayments(), api.getCampaigns()]);
       setStats(s);
       setPayments(p);
+      setCampaigns(c || []);
     } catch {
       // silently handle — show empty state
     } finally {
@@ -513,6 +515,30 @@ export default function Overview() {
             <KpiCard key={k.label} label={k.label} value={k.value} sub={k.sub} accent={k.accent} />
           ))}
       </div>
+
+      {/* ── Attack Intelligence ───────────────────────── */}
+      {!loading && campaigns && campaigns.length > 0 && (
+        <div style={{ background: '#FFF5F5', border: '1px solid rgba(240,75,75,0.3)', borderRadius: '24px', padding: '28px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#F04B4B', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <AlertTriangle size={20} />
+                Attack Intelligence
+              </h2>
+              <p style={{ fontSize: '13px', color: '#596168', margin: '6px 0 0' }}>Multiple coordinated campaigns detected</p>
+            </div>
+            <button onClick={() => navigate('/pipeline')} className="btn-primary" style={{ background: '#F04B4B', borderColor: '#F04B4B' }}>
+              Investigate Campaigns →
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+            <KpiCard label="Active Campaigns" value={campaigns.length} accent="#F04B4B" />
+            <KpiCard label="Potential Exposure" value={fmtAmount(campaigns.reduce((sum, c) => sum + c.total_exposure, 0))} accent="#F04B4B" />
+            <KpiCard label="Affected Payments" value={campaigns.reduce((sum, c) => sum + c.payments.length, 0)} />
+            <KpiCard label="Affected Vendors" value={campaigns.reduce((sum, c) => sum + c.vendors.length, 0)} />
+          </div>
+        </div>
+      )}
 
       {/* ── Analytics row ───────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px' }}>

@@ -36,8 +36,8 @@
       "id": "llm_gemini_1",
       "provider": "llm_gemini",
       "config": {
-        "profile": "gemini-3.1-pro",
-        "gemini-3.1-pro": {
+        "profile": "gemini-3-pro",
+        "gemini-3-pro": {
           "apikey": "${ROCKETRIDE_GEMINI_APIKEY}"
         },
         "parameters": {}

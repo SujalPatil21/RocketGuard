@@ -69,8 +69,8 @@ export interface Stats {
   tokens: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : 'http://localhost:8000/api';
-const AUTH_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/auth` : 'http://localhost:8000/auth';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : 'http://localhost:5001/api';
+const AUTH_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/auth` : 'http://localhost:5001/auth';
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('rg_token');
@@ -144,6 +144,11 @@ export const api = {
 
   getStats: async (): Promise<Stats> => {
     const res = await fetch(`${API_BASE}/stats`, { headers: getAuthHeaders() });
+    return handleResponse(res);
+  },
+
+  getCampaigns: async (): Promise<any[]> => {
+    const res = await fetch(`${API_BASE}/campaigns`, { headers: getAuthHeaders() });
     return handleResponse(res);
   },
 

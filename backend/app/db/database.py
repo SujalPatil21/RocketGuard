@@ -34,4 +34,5 @@ def create_tables():
     """
     # Import all models so their metadata is registered before create_all
     import app.models.user  # noqa: F401
+    import app.models.fraud  # noqa: F401
     Base.metadata.create_all(bind=engine)
