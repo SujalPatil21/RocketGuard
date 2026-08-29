@@ -6,6 +6,8 @@ import Overview from './pages/Overview';
 import Payments from './pages/Payments';
 import Activity from './pages/Activity';
 import Pipeline from './pages/Pipeline';
+import AttackIntelligence from './pages/AttackIntelligence';
+import CampaignDetail from './pages/CampaignDetail';
 import { SignIn, SignUp } from './pages/Auth';
 import Landing from './pages/Landing';
 import './App.css';
@@ -122,10 +124,11 @@ const Brand = () => (
 
 const NavPill = () => {
   const items = [
-    { to: '/app',       label: 'Overview'     },
-    { to: '/payments',  label: 'Payments'     },
-    { to: '/activity',  label: 'Activity'     },
-    { to: '/pipeline',  label: 'Pipeline'     },
+    { to: '/app',                 label: 'Overview'          },
+    { to: '/payments',            label: 'Payments'          },
+    { to: '/attack-intelligence', label: 'Attack Intel'      },
+    { to: '/activity',            label: 'Activity'          },
+    { to: '/pipeline',            label: 'Pipeline'          },
   ];
 
   return (
@@ -146,6 +149,20 @@ const NavPill = () => {
 const UtilityControls = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<string>('DEMO');
+
+  useEffect(() => {
+    api.getMode().then(res => setMode(res.mode)).catch(() => {});
+  }, []);
+
+  const toggleMode = async () => {
+    const nextMode = mode === 'DEMO' ? 'EXPANDED' : 'DEMO';
+    try {
+      const res = await api.setMode(nextMode);
+      setMode(res.mode);
+      window.location.reload();
+    } catch (e) {}
+  };
 
   const handleLogout = () => {
     logout();
@@ -153,7 +170,26 @@ const UtilityControls = () => {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-4">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#596168' }}>
+        <span>Mode:</span>
+        <button
+          onClick={toggleMode}
+          style={{
+            padding: '4px 10px',
+            borderRadius: '6px',
+            background: mode === 'EXPANDED' ? '#323232' : 'rgba(35,50,65,0.08)',
+            color: mode === 'EXPANDED' ? '#fff' : '#17191B',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.04em'
+          }}
+        >
+          {mode}
+        </button>
+      </div>
       <button
         id="nav-logout"
         aria-label="Logout"
@@ -240,6 +276,8 @@ export default function App() {
           }>
             <Route path="/app" element={<Overview />} />
             <Route path="/payments" element={<Payments />} />
+            <Route path="/attack-intelligence" element={<AttackIntelligence />} />
+            <Route path="/attack-intelligence/:campaignId" element={<CampaignDetail />} />
             <Route path="/activity" element={<Activity />} />
             <Route path="/pipeline" element={<Pipeline />} />
           </Route>

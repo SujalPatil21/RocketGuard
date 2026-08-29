@@ -55,7 +55,6 @@ class Payment(Base):
     signals: Mapped[list["RiskSignal"]] = relationship("RiskSignal", back_populates="payment", cascade="all, delete-orphan")
     campaign_payments: Mapped[list["CampaignPayment"]] = relationship("CampaignPayment", back_populates="payment", cascade="all, delete-orphan")
 
-
 class RiskSignal(Base):
     __tablename__ = "risk_signals"
 
@@ -85,7 +84,6 @@ class AttackCampaign(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
-
     campaign_payments: Mapped[list["CampaignPayment"]] = relationship("CampaignPayment", back_populates="campaign", cascade="all, delete-orphan")
 
 
@@ -98,3 +96,17 @@ class CampaignPayment(Base):
 
     campaign: Mapped["AttackCampaign"] = relationship("AttackCampaign", back_populates="campaign_payments")
     payment: Mapped["Payment"] = relationship("Payment", back_populates="campaign_payments")
+
+class Requester(Base):
+    __tablename__ = "requesters"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True, default=generate_uuid, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    department: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+class GroundTruthCase(Base):
+    __tablename__ = "ground_truth_cases"
+
+    case_id: Mapped[str] = mapped_column(String(50), primary_key=True, default=generate_uuid, index=True)
+    payment_id: Mapped[str] = mapped_column(String(50), ForeignKey("payments.id"), nullable=False)
+    fraud_label: Mapped[bool] = mapped_column(Boolean, nullable=False)

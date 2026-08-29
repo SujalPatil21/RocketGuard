@@ -10,3 +10,4 @@ email-validator
 jinja2
 pydantic-settings
 psycopg2-binary
+neo4j

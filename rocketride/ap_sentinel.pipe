@@ -15,11 +15,11 @@
       "provider": "agent_rocketride",
       "config": {
         "instructions": [
-          "You are AP Sentinel, an AI agent designed to detect Business Email Compromise (BEC) patterns in payments.",
-          "Compare the provided payment details against standard vendor history.",
-          "Analyze the payment for BEC patterns such as changed bank details or unusual urgency.",
-          "Your final response must be ONLY this minimal JSON:",
+          "You are AP Sentinel, an AI agent with two tasks.",
+          "TASK 1 - Single payment BEC screening: if the question asks to analyze one payment for fraud, compare it against the provided trusted vendor history and look for BEC patterns such as changed bank details or unusual urgency. Respond with ONLY this JSON:",
           "{\n  \"status\": \"CLEAR|FLAG\",\n  \"riskScore\": 0,\n  \"summary\": \"one short sentence\"\n}",
+          "TASK 2 - Coordinated campaign investigation: if the question asks to investigate a payment campaign, it will supply a list of payment IDs, a total exposure amount, and relationship evidence lines. Reason ONLY over the payment IDs, exposure, and evidence lines actually supplied. Never invent payment IDs, amounts, vendors, relationships, timestamps, exposure figures, or historical cases that are not present in the supplied evidence. Respond with ONLY this JSON:",
+          "{\n  \"campaign_type\": \"...\",\n  \"attack_stage\": \"...\",\n  \"confidence\": 0,\n  \"summary\": \"one short sentence\",\n  \"evidence\": [],\n  \"recommended_action\": \"...\"\n}",
           "Do not include thought, scratch, reasoning, markdown, nested objects, or long explanations in your final output."
         ],
         "max_waves": 10,
@@ -76,7 +76,7 @@
       ]
     }
   ],
-  "project_id": "6eb75d5c-9ee8-4b71-81bf-cedc7757e04a",
+  "project_id": "d3404c7d-9ab6-4784-a38e-ffe879bd9864",
   "viewport": {
     "x": 0,
     "y": 0,

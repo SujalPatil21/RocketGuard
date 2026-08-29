@@ -33,13 +33,15 @@
       ]
     },
     {
-      "id": "llm_ollama_1",
-      "provider": "llm_ollama",
+      "id": "llm_openai_api_1",
+      "provider": "llm_openai_api",
       "config": {
         "profile": "custom",
         "custom": {
-          "model": "llama3.2",
-          "serverbase": "http://127.0.0.1:11434"
+          "model": "openai/gpt-oss-120b",
+          "base_url": "https://api.groq.com/openai/v1",
+          "apikey": "${ROCKETRIDE_GROQ_APIKEY}",
+          "modelTotalTokens": 131072
         },
         "parameters": {}
       },
@@ -77,7 +79,7 @@
       ]
     }
   ],
-  "project_id": "6a114305-84c4-47af-b500-c5f6e5079558",
+  "project_id": "c3299623-30e9-4006-b5cb-7650a359b6eb",
   "viewport": {
     "x": 0,
     "y": 0,

@@ -2,9 +2,6 @@
 
 # Secrets
 .env
-*.db
-auth.db
-jwt_secret.txt
 
 # Backend
 backend/venv/
@@ -20,3 +17,8 @@ frontend/dist/
 __pycache__/
 *.pyc
 *.pyo
+
+.env
+*.db
+auth.db
+jwt_secret.txt

@@ -527,7 +527,7 @@ export default function Overview() {
               </h2>
               <p style={{ fontSize: '13px', color: '#596168', margin: '6px 0 0' }}>Multiple coordinated campaigns detected</p>
             </div>
-            <button onClick={() => navigate('/pipeline')} className="btn-primary" style={{ background: '#F04B4B', borderColor: '#F04B4B' }}>
+            <button onClick={() => navigate('/attack-intelligence')} className="btn-primary" style={{ background: '#F04B4B', borderColor: '#F04B4B' }}>
               Investigate Campaigns →
             </button>
           </div>

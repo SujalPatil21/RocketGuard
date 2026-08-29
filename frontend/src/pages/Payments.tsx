@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, X, AlertTriangle } from 'lucide-react';
+import { Search, X, AlertTriangle, Radar, Link2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api';
-import type { PaymentResult } from '../lib/api';
+import type { PaymentResult, InvestigateResult } from '../lib/api';
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -135,6 +136,182 @@ function TxnRow({ payment, isSelected, onClick }: TxnRowProps) {
 }
 
 // ──────────────────────────────────────────────
+// Investigate flow
+// ──────────────────────────────────────────────
+
+const INVESTIGATE_STEPS = [
+  'Analyzing transaction…',
+  'Checking anomaly…',
+  'Finding connected entities…',
+  'Checking investigation history…',
+  'RocketRide investigation…',
+  'Verifying evidence…',
+];
+
+function verdictBanner(result: InvestigateResult) {
+  if (result.verdict === 'COORDINATED_ATTACK') {
+    return { text: '🚨 COORDINATED ATTACK DETECTED', color: '#F04B4B', bg: 'rgba(240,75,75,0.15)' };
+  }
+  if (result.verdict === 'INDIVIDUAL_FRAUD') {
+    return { text: '⚠ Individual fraud indicators found', color: '#F28A45', bg: 'rgba(242,138,69,0.15)' };
+  }
+  return { text: '✓ No coordinated activity found', color: '#7DBF9A', bg: 'rgba(125,191,154,0.15)' };
+}
+
+function InvestigateSection({ paymentId }: { paymentId: string }) {
+  const [stepIndex, setStepIndex] = useState(-1);
+  const [result, setResult] = useState<InvestigateResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+
+  // Reset when the selected payment changes
+  useEffect(() => {
+    setStepIndex(-1);
+    setResult(null);
+    setError(null);
+    setRunning(false);
+  }, [paymentId]);
+
+  const start = async () => {
+    if (running) return;
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    setStepIndex(0);
+
+    const interval = setInterval(() => {
+      setStepIndex(i => (i < INVESTIGATE_STEPS.length - 1 ? i + 1 : i));
+    }, 450);
+
+    try {
+      const res = await api.investigatePayment(paymentId);
+      clearInterval(interval);
+      setStepIndex(INVESTIGATE_STEPS.length);
+      setResult(res);
+    } catch (err: unknown) {
+      clearInterval(interval);
+      setError((err as Error).message || 'Investigation failed.');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const banner = result ? verdictBanner(result) : null;
+  const isAiUnavailable = !!result?.campaign_result && /AI Analysis Failed/.test(result.campaign_result.summary || '');
+
+  return (
+    <div style={{ background: 'rgba(50,50,50,0.18)', borderRadius: '14px', padding: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: stepIndex >= 0 ? '14px' : 0 }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3E5462' }}>
+          Network Investigation
+        </div>
+        <button
+          id="investigate-btn"
+          onClick={start}
+          disabled={running}
+          className="btn-dark"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '7px 14px' }}
+        >
+          <Radar size={13} />
+          {running ? 'Investigating…' : result ? 'Re-investigate' : 'Investigate Payment'}
+        </button>
+      </div>
+
+      {stepIndex >= 0 && !result && !error && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {INVESTIGATE_STEPS.map((step, i) => (
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: i <= stepIndex ? 1 : 0.3, x: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ fontSize: '12px', color: i <= stepIndex ? '#17191B' : '#596168', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: i <= stepIndex ? '#DDF625' : 'rgba(23,25,27,0.2)', flexShrink: 0 }} />
+              {step}
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ fontSize: '12px', color: '#F04B4B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <AlertTriangle size={12} /> {error}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {result && banner && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
+            <div style={{ background: banner.bg, borderRadius: '12px', padding: '12px 14px', fontSize: '13px', fontWeight: 700, color: banner.color }}>
+              {banner.text}
+            </div>
+
+            {result.anomaly.signals.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {result.anomaly.signals.map((s, i) => (
+                  <div key={i} style={{ fontSize: '11px', color: '#17191B' }}>• {s}</div>
+                ))}
+              </div>
+            )}
+
+            {result.relationships.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#3E5462', marginBottom: '6px' }}>
+                  <Link2 size={11} /> Connected Payments ({new Set(result.relationships.map(r => r.payment_id)).size})
+                </div>
+                {result.relationships.map((r, i) => (
+                  <div key={i} style={{ fontSize: '11px', color: '#17191B', marginBottom: '3px' }}>
+                    {r.payment_id} — {r.relationship.replace(/_/g, ' ').toLowerCase()}
+                    {r.evidence && <span style={{ color: '#4A6070' }}> ({r.evidence})</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {result.historical_associations.length > 0 && (
+              <div style={{ background: 'rgba(233,200,74,0.15)', borderRadius: '10px', padding: '10px 12px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#3E5462', marginBottom: '4px' }}>
+                  Previous association detected
+                </div>
+                {result.historical_associations.map((h, i) => (
+                  <div key={i} style={{ fontSize: '11px', color: '#17191B' }}>
+                    Appeared in campaign {h.campaign_id.slice(0, 8)} ({h.campaign_type})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {result.campaign_result && (
+              <div style={{ background: isAiUnavailable ? 'rgba(242,138,69,0.15)' : 'rgba(35,50,65,0.25)', borderRadius: '10px', padding: '10px 12px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: isAiUnavailable ? '#F28A45' : '#9DB1BF', marginBottom: '4px' }}>
+                  {isAiUnavailable ? 'AI Unavailable' : 'RocketRide Assessment'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#17191B', lineHeight: 1.5 }}>{result.campaign_result.summary}</div>
+                {!isAiUnavailable && (
+                  <div style={{ fontSize: '11px', color: '#4A6070', marginTop: '4px' }}>
+                    {result.campaign_result.campaign_type} · {result.campaign_result.attack_stage} · {Math.round(result.campaign_result.confidence)}% confidence
+                  </div>
+                )}
+                {result.campaign_result.recommended_action && !isAiUnavailable && (
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#17191B', marginTop: '6px' }}>
+                    Recommended: {result.campaign_result.recommended_action}
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
 // Detail Panel
 // ──────────────────────────────────────────────
 
@@ -260,6 +437,9 @@ function DetailPanel({ payment, onClose, onApproved, onRejected }: DetailPanelPr
             <RiskBar score={payment.risk_score} />
           </div>
         )}
+
+        {/* Network investigation */}
+        <InvestigateSection paymentId={p.invoice_id} />
 
         {/* Payment info */}
         <div style={{ background: 'rgba(255,255,255,0.35)', borderRadius: '14px', padding: '16px' }}>

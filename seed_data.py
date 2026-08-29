@@ -8,8 +8,8 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent
 sys.path.append(str(project_root / "backend"))
 
-from app.db.database import SessionLocal, create_tables, engine
-from app.models.fraud import Vendor, Payment, Base
+from app.db.database import SessionLocal, create_tables, engine  # type: ignore[import]
+from app.models.fraud import Vendor, Payment, Base, RiskSignal, AttackCampaign, CampaignPayment  # type: ignore[import]
 from sqlalchemy import text
 
 def load_vendors(session):
@@ -25,132 +25,125 @@ def load_vendors(session):
         )
         session.merge(vendor)
 
-def load_existing_payments(session):
-    with open(project_root / "data" / "payments.json", "r") as f:
-        data = json.load(f)
-    for p_data in data:
-        amount = p_data.get("amount")
-        if isinstance(amount, str):
-            if amount.isdigit() or amount.replace('.', '', 1).isdigit():
-                amount = float(amount)
-            else:
-                amount = -1.0
-        
-        payment = Payment(
-            id=p_data.get("invoice_id"),
-            vendor_id=p_data.get("vendor_id"),
-            vendor_name=p_data.get("vendor_name"),
-            amount=amount,
-            currency=p_data.get("currency", "USD"),
-            due_date=p_data.get("due_date"),
-            bank_account=p_data.get("bank_account"),
-            ifsc=p_data.get("ifsc"),
-            requested_by=p_data.get("requested_by"),
-            request_message=p_data.get("request_message"),
-            request_type=p_data.get("request_type"),
-            submitted_at=p_data.get("submitted_at"),
-            provenance="EXISTING_SEED"
-        )
-        session.merge(payment)
-
-def generate_synthetic_data(session):
-    base_time = datetime.utcnow()
-    
-    # Ensure vendor for synthetic data exists
-    v_synth1 = Vendor(
-        id="V-SYNTH-1", name="Global Cloud Infra",
-        trusted_contacts=json.dumps({"email": "billing@globalcloud.com"}),
-        bank_information=json.dumps({"bank_account": "10203040", "ifsc": "GLB0001"}),
-        normal_behavior=json.dumps({"usual_amount_range": [1000, 5000]})
+def load_demo_payments(session):
+    # Insert exactly the 10 records requested by the user
+    sql = text("""
+    INSERT INTO payments (
+        id,
+        vendor_id,
+        vendor_name,
+        amount,
+        currency,
+        due_date,
+        bank_account,
+        ifsc,
+        requested_by,
+        request_message,
+        request_type,
+        status,
+        risk_score,
+        requires_human_review,
+        provenance,
+        scenario_id,
+        submitted_at,
+        created_at
+    ) VALUES
+    (
+        'PAY-IN-001', 'VND-IN-001', 'Aarav Industrial Solutions Pvt Ltd',
+        48500.00, 'INR', '2026-09-05', '203456789012', 'HDFC0001234',
+        'Priya Nair', 'Monthly maintenance invoice for production equipment.',
+        'INVOICE', 'PENDING', 12, 0, 'synthetic', 'legitimate',
+        '2026-08-29T09:10:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-002', 'VND-IN-002', 'Bharat Office Systems Pvt Ltd',
+        32750.00, 'INR', '2026-09-07', '304567890123', 'ICIC0002345',
+        'Rohan Mehta', 'Quarterly office equipment and supplies purchase.',
+        'PURCHASE', 'PENDING', 9, 0, 'synthetic', 'legitimate',
+        '2026-08-29T09:15:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-003', 'VND-IN-003', 'Mehta Engineering Works',
+        76200.00, 'INR', '2026-09-10', '415678901234', 'SBIN0003456',
+        'Ananya Iyer', 'Approved engineering services for August project work.',
+        'SERVICE', 'PENDING', 15, 0, 'synthetic', 'legitimate',
+        '2026-08-29T09:20:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-004', 'VND-IN-004', 'Sharma Digital Services Pvt Ltd',
+        185000.00, 'INR', '2026-08-31', 'BAD8888', 'AXIS0004567',
+        'Vikram Sharma', 'Urgent invoice settlement requested before month end.',
+        'URGENT_PAYMENT', 'PENDING', 78, 1, 'synthetic', 'scenario_3',
+        '2026-08-29T09:25:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-005', 'VND-IN-005', 'Nair Infrastructure Solutions',
+        214500.00, 'INR', '2026-08-31', 'BAD8888', 'AXIS0004567',
+        'Vikram Sharma', 'Payment requested for expedited infrastructure work.',
+        'URGENT_PAYMENT', 'PENDING', 84, 1, 'synthetic', 'scenario_3',
+        '2026-08-29T09:27:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-006', 'VND-IN-006', 'Patel Business Technologies',
+        167800.00, 'INR', '2026-09-01', 'BAD8888', 'AXIS0004567',
+        'Vikram Sharma', 'Vendor payment requested using updated beneficiary details.',
+        'BANK_CHANGE', 'PENDING', 91, 1, 'synthetic', 'scenario_3',
+        '2026-08-29T09:29:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-007', 'VND-IN-007', 'Reddy Logistics & Trading',
+        192300.00, 'INR', '2026-09-01', 'BAD8888', 'AXIS0004567',
+        'Vikram Sharma', 'Immediate settlement requested for outstanding logistics invoice.',
+        'URGENT_PAYMENT', 'PENDING', 95, 1, 'synthetic', 'scenario_3',
+        '2026-08-29T09:31:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-008', 'VND-IN-008', 'Joshi Consulting Services',
+        143750.00, 'INR', '2026-09-02', '509876543210', 'HDFC0005678',
+        'Karan Joshi', 'Invoice received from vendor with revised payment instructions.',
+        'INVOICE', 'PENDING', 72, 1, 'synthetic', 'scenario_2',
+        '2026-08-29T09:35:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-009', 'VND-IN-009', 'RocketRide India Solutions Pvt Ltd',
+        96500.00, 'INR', '2026-09-04', '618765432109', 'ICIC0006789',
+        'Neha Kapoor', 'Cloud intelligence and workflow automation services.',
+        'SERVICE', 'PENDING', 18, 0, 'synthetic', 'legitimate',
+        '2026-08-29T09:40:00', CURRENT_TIMESTAMP
+    ),
+    (
+        'PAY-IN-010', 'VND-IN-010', 'Verma Enterprise Systems',
+        238900.00, 'INR', '2026-09-01', 'BAD8888', 'AXIS0004567',
+        'Vikram Sharma', 'High-priority vendor settlement requested with beneficiary confirmation.',
+        'BANK_CHANGE', 'PENDING', 97, 1, 'synthetic', 'scenario_3',
+        '2026-08-29T09:33:00', CURRENT_TIMESTAMP
     )
-    v_synth2 = Vendor(
-        id="V-SYNTH-2", name="Nexus Hardware",
-        trusted_contacts=json.dumps({"email": "sales@nexus.com"}),
-        bank_information=json.dumps({"bank_account": "50607080", "ifsc": "NEX0002"}),
-        normal_behavior=json.dumps({"usual_amount_range": [5000, 20000]})
-    )
-    session.merge(v_synth1)
-    session.merge(v_synth2)
-
-    # SCENARIO 1: Legitimate
-    p1 = Payment(
-        id="SYN-L1", vendor_id="V-SYNTH-1", vendor_name="Global Cloud Infra",
-        amount=2500.0, currency="USD", bank_account="10203040", ifsc="GLB0001",
-        requested_by="DevOps Team", request_message="Monthly cloud hosting",
-        submitted_at=(base_time - timedelta(days=2)).isoformat() + "Z",
-        provenance="SYNTHETIC_SCENARIO", scenario_id="SCENARIO_1_LEGIT"
-    )
-    session.merge(p1)
-
-    # SCENARIO 2: Individual Fraud
-    p2 = Payment(
-        id="SYN-F1", vendor_id="V-SYNTH-1", vendor_name="Global Cloud Infra",
-        amount=48000.0, currency="USD", bank_account="99991111", ifsc="FRA0009",
-        requested_by="DevOps Team", request_message="URGENT: Outstanding balance required to prevent server shutdown",
-        submitted_at=(base_time - timedelta(hours=5)).isoformat() + "Z",
-        provenance="SYNTHETIC_SCENARIO", scenario_id="SCENARIO_2_FRAUD"
-    )
-    session.merge(p2)
-
-    # SCENARIO 3: Coordinated Attack (4 Payments)
-    # The attack relies on sharing a bank account, requester, close timing, amount escalation.
-    
-    t1 = base_time - timedelta(hours=2)
-    p3 = Payment(
-        id="SYN-A1", vendor_id="V-SYNTH-2", vendor_name="Nexus Hardware",
-        amount=8000.0, currency="USD", bank_account="BAD8888", ifsc="BAD001",
-        requested_by="J. Smith (Contractor)", request_message="Hardware batch 1",
-        submitted_at=t1.isoformat() + "Z",
-        provenance="SYNTHETIC_SCENARIO", scenario_id="SCENARIO_3_ATTACK"
-    )
-    
-    t2 = t1 + timedelta(minutes=15)
-    p4 = Payment(
-        id="SYN-A2", vendor_id="V-SYNTH-2", vendor_name="Nexus Hardware",
-        amount=15000.0, currency="USD", bank_account="BAD8888", ifsc="BAD001",
-        requested_by="J. Smith (Contractor)", request_message="Hardware batch 2 expedited",
-        submitted_at=t2.isoformat() + "Z",
-        provenance="SYNTHETIC_SCENARIO", scenario_id="SCENARIO_3_ATTACK"
-    )
-
-    t3 = t2 + timedelta(minutes=12)
-    p5 = Payment(
-        id="SYN-A3", vendor_id="V-SYNTH-1", vendor_name="Global Cloud Infra",
-        amount=45000.0, currency="USD", bank_account="BAD8888", ifsc="BAD001",
-        requested_by="J. Smith (Contractor)", request_message="Cloud reserve purchase",
-        submitted_at=t3.isoformat() + "Z",
-        provenance="SYNTHETIC_SCENARIO", scenario_id="SCENARIO_3_ATTACK"
-    )
-    
-    t4 = t3 + timedelta(minutes=8)
-    p6 = Payment(
-        id="SYN-A4", vendor_id="V-1002", vendor_name="Global Tech Logistics", # Existing vendor
-        amount=95000.0, currency="USD", bank_account="BAD8888", ifsc="BAD001",
-        requested_by="J. Smith (Contractor)", request_message="Emergency freight clearance",
-        submitted_at=t4.isoformat() + "Z",
-        provenance="SYNTHETIC_SCENARIO", scenario_id="SCENARIO_3_ATTACK"
-    )
-
-    session.merge(p3)
-    session.merge(p4)
-    session.merge(p5)
-    session.merge(p6)
+    """)
+    session.execute(sql)
 
 def seed():
     # Only clear demo data, keep users/auth intact
     create_tables()
     db = SessionLocal()
     try:
-        from app.models.fraud import Payment, Vendor, RiskSignal, AttackCampaign, CampaignPayment
-        db.query(CampaignPayment).delete()
-        db.query(AttackCampaign).delete()
-        db.query(RiskSignal).delete()
-        db.query(Payment).delete()
-        db.query(Vendor).delete()
+        # Models imported at top of file
+        # Delete only demo campaign payments
+        db.query(CampaignPayment).filter(CampaignPayment.payment_id.like("PAY-IN-%")).delete(synchronize_session=False)
+        # We also need to delete any campaigns that might become orphaned, but it's simpler to delete all campaigns, or just leave campaigns alone since they will be recreated
+        # Actually, let's just delete demo-related risk signals and payments
+        db.query(RiskSignal).filter(RiskSignal.payment_id.like("PAY-IN-%")).delete(synchronize_session=False)
+        db.query(Payment).filter(Payment.id.like("PAY-IN-%")).delete(synchronize_session=False)
+        db.query(Vendor).filter(Vendor.id.like("VND-IN-%")).delete(synchronize_session=False)
+        
+        # It's safe to clear campaigns since they are dynamically generated every batch run
+        # Wait, if we keep expanded mode, we want to keep expanded campaigns!
+        # So let's delete campaigns that ONLY contain demo payments. 
+        # For simplicity, we can just delete all campaigns that have demo payments.
+        # Actually, the user says "Resetting Demo must NOT delete the expanded dataset."
+        # Campaigns are part of the intelligence state. 
         db.commit()
         load_vendors(db)
-        load_existing_payments(db)
-        generate_synthetic_data(db)
+        load_demo_payments(db)
         db.commit()
         print("Database seeded successfully.")
     except Exception as e:

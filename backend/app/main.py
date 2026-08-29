@@ -9,7 +9,8 @@ from .models.payment import PaymentRequest, PaymentResult, PaymentStatus
 from .models.audit import AuditEvent
 from .models.fraud import Payment, Vendor, RiskSignal, AttackCampaign, CampaignPayment
 from .services.rocketride_service import run_pipeline
-from .services.intelligence import run_risk_adjudicator, run_attack_chain_analysis
+from .services.intelligence import run_risk_adjudicator, run_attack_chain_analysis, investigate_payment
+from .services import graph
 
 from .auth.controllers.router import router as auth_router
 from .auth.exceptions.exceptions import AuthException
@@ -17,6 +18,12 @@ from .auth.security.dependencies import get_current_user
 from .db.database import create_tables, get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from pydantic import BaseModel
+
+dataset_mode = "DEMO"
+
+class ModeUpdate(BaseModel):
+    mode: str
 
 app = FastAPI(title="AP Sentinel API")
 
@@ -57,14 +64,30 @@ def on_startup():
 def health():
     return {"status": "ok"}
 
+@app.get("/api/mode")
+def get_mode(current_user=Depends(get_current_user)):
+    return {"mode": dataset_mode}
+
+@app.post("/api/mode")
+def set_mode(update: ModeUpdate, current_user=Depends(get_current_user)):
+    global dataset_mode
+    if update.mode in ["DEMO", "EXPANDED"]:
+        dataset_mode = update.mode
+    return {"mode": dataset_mode}
+
 @app.get("/api/stats")
 def get_stats(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    total = db.query(Payment).count()
-    clear = db.query(Payment).filter(Payment.status == "CLEAR").count()
-    held = db.query(Payment).filter(Payment.status == "HELD").count()
-    approved = db.query(Payment).filter(Payment.status == "APPROVED").count()
-    rejected = db.query(Payment).filter(Payment.status == "REJECTED").count()
-    unprocessable = db.query(Payment).filter(Payment.status == "UNPROCESSABLE").count()
+    if dataset_mode == "DEMO":
+        base_query = db.query(Payment).filter(Payment.id.like("PAY-IN-%"))
+    else:
+        base_query = db.query(Payment).filter(~Payment.id.like("PAY-IN-%"))
+
+    total = base_query.count()
+    clear = base_query.filter(Payment.status == "CLEAR").count()
+    held = base_query.filter(Payment.status == "HELD").count()
+    approved = base_query.filter(Payment.status == "APPROVED").count()
+    rejected = base_query.filter(Payment.status == "REJECTED").count()
+    unprocessable = base_query.filter(Payment.status == "UNPROCESSABLE").count()
     
     return {
         "screened": total,
@@ -106,8 +129,32 @@ def map_payment_to_result(p: Payment, db: Session) -> dict:
 
 @app.get("/api/payments")
 def get_payments(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    payments = db.query(Payment).all()
+    if dataset_mode == "DEMO":
+        payments = db.query(Payment).filter(Payment.id.like("PAY-IN-%")).all()
+    else:
+        payments = db.query(Payment).filter(~Payment.id.like("PAY-IN-%")).all()
     return [map_payment_to_result(p, db) for p in payments]
+
+@app.get("/api/payments/{payment_id}")
+def get_payment(payment_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    p = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return map_payment_to_result(p, db)
+
+def serialize_campaign(c: AttackCampaign, db: Session) -> dict:
+    payments_in_campaign = [cp.payment_id for cp in c.campaign_payments]
+    return {
+        "id": c.id,
+        "campaign_type": c.campaign_type,
+        "confidence": c.confidence,
+        "stage": c.stage,
+        "total_exposure": c.total_exposure,
+        "status": c.status,
+        "reasoning": c.reasoning,
+        "payments": payments_in_campaign,
+        "vendors": list(set([db.query(Payment).filter(Payment.id==pid).first().vendor_id for pid in payments_in_campaign]))
+    }
 
 @app.get("/api/campaigns")
 def get_campaigns(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
@@ -115,18 +162,50 @@ def get_campaigns(current_user=Depends(get_current_user), db: Session = Depends(
     res = []
     for c in campaigns:
         payments_in_campaign = [cp.payment_id for cp in c.campaign_payments]
-        res.append({
-            "id": c.id,
-            "campaign_type": c.campaign_type,
-            "confidence": c.confidence,
-            "stage": c.stage,
-            "total_exposure": c.total_exposure,
-            "status": c.status,
-            "reasoning": c.reasoning,
-            "payments": payments_in_campaign,
-            "vendors": list(set([db.query(Payment).filter(Payment.id==pid).first().vendor_id for pid in payments_in_campaign]))
-        })
+        if not payments_in_campaign:
+            continue
+
+        is_demo_campaign = payments_in_campaign[0].startswith("PAY-IN-")
+        if dataset_mode == "DEMO" and not is_demo_campaign:
+            continue
+        if dataset_mode == "EXPANDED" and is_demo_campaign:
+            continue
+
+        res.append(serialize_campaign(c, db))
     return res
+
+@app.get("/api/campaigns/{campaign_id}")
+def get_campaign(campaign_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    c = db.query(AttackCampaign).filter(AttackCampaign.id == campaign_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return serialize_campaign(c, db)
+
+@app.get("/api/campaigns/{campaign_id}/payments")
+def get_campaign_payments(campaign_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    c = db.query(AttackCampaign).filter(AttackCampaign.id == campaign_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    payment_ids = [cp.payment_id for cp in c.campaign_payments]
+    payments = db.query(Payment).filter(Payment.id.in_(payment_ids)).all()
+    return [map_payment_to_result(p, db) for p in payments]
+
+@app.get("/api/campaigns/{campaign_id}/relationships")
+def get_campaign_relationships(campaign_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    c = db.query(AttackCampaign).filter(AttackCampaign.id == campaign_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    payment_ids = [cp.payment_id for cp in c.campaign_payments]
+    seen = set()
+    edges = []
+    for pid in payment_ids:
+        for rel in graph.get_relationship_network(pid):
+            key = tuple(sorted((pid, rel["payment_id"]))) + (rel["relationship"],)
+            if key in seen:
+                continue
+            seen.add(key)
+            edges.append({"from": pid, "to": rel["payment_id"], "relationship": rel["relationship"], "evidence": rel.get("evidence")})
+    return {"campaign_id": campaign_id, "relationships": edges}
 
 @app.get("/api/activity")
 def get_activity(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
@@ -142,7 +221,10 @@ async def screen_batch(current_user=Depends(get_current_user), db: Session = Dep
     
     is_batch_running = True
     try:
-        pending_payments = db.query(Payment).filter(Payment.status == "PENDING").all()
+        if dataset_mode == "DEMO":
+            pending_payments = db.query(Payment).filter(Payment.status == "PENDING", Payment.id.like("PAY-IN-%")).all()
+        else:
+            pending_payments = db.query(Payment).filter(Payment.status == "PENDING", ~Payment.id.like("PAY-IN-%")).all()
         
         for p in pending_payments:
             if p.amount < 0 or not p.bank_account:
@@ -180,6 +262,13 @@ def reject_payment(payment_id: str, current_user=Depends(get_current_user), db: 
         db.commit()
         return map_payment_to_result(p, db)
     raise HTTPException(status_code=404, detail="Payment not found")
+
+@app.post("/api/payments/{payment_id}/investigate")
+async def investigate(payment_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    p = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return await investigate_payment(p, db)
 
 @app.post("/api/reset-demo")
 def reset_demo(current_user=Depends(get_current_user)):
